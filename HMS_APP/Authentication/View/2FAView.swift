@@ -10,7 +10,9 @@ import SwiftUI
 struct TwoFAView: View {
     @Environment(\.colorScheme) var colorScheme
     
-    let isLoginFlow: Bool
+    var isLoginFlow: Bool
+    var userType: String
+    var email: String
     @State private var otpFields: [String] = ["", "", "", "", "", ""] // Updated to 6 digits
     @FocusState private var focusedIndex: Int?
     @State private var secondsRemaining = 60
@@ -19,9 +21,13 @@ struct TwoFAView: View {
     @State private var errorMessage: String? = nil
     @EnvironmentObject var authManager: AuthManager
     @State private var isLoading = false
-    var email: String
     
-    
+    init(isLoginFlow: Bool, email: String, userType: String) {
+        self.isLoginFlow = isLoginFlow
+        self.email = email
+        self.userType = userType
+    }
+
     private var isFormValid: Bool {
         return !otpFields.isEmpty && otpFields.allSatisfy { !$0.isEmpty }
     }
@@ -134,7 +140,7 @@ struct TwoFAView: View {
         .background(colorScheme == .dark ? Theme.dark.background : Theme.light.background)
         .background(
             NavigationLink(
-                destination: isLoginFlow ? AnyView(ContentView()) : AnyView(HospitalEntryView()),
+                destination: getDestinationView(),
                 isActive: $navigateToHome
             ) {
                 EmptyView()
@@ -201,7 +207,8 @@ struct TwoFAView: View {
                     authManager.login(
                         userId: userId,
                         userName: savedName.isEmpty ? authService.name : savedName,
-                        userEmail: savedEmail.isEmpty ? authService.email : savedEmail
+                        userEmail: savedEmail.isEmpty ? authService.email : savedEmail,
+                        userType: userType
                     )
                     navigateToHome = true
                 }
@@ -210,6 +217,34 @@ struct TwoFAView: View {
             }
         } catch {
             errorMessage = "OTP verification failed: \(error.localizedDescription)"
+        }
+    }
+    
+    @ViewBuilder
+    private func getDestinationView() -> some View {
+        if isLoginFlow {
+            switch userType {
+            case "hospital":
+                HospitalView()
+            case "doctor":
+                HospitalView()
+            case "patient":
+                HospitalView()
+            default:
+                ContentView()
+            }
+        } else {
+            // For signup flow
+            switch userType {
+            case "hospital":
+                HospitalEntryView()
+            case "doctor":
+                HospitalView()
+            case "patient":
+                HospitalView()
+            default:
+                ContentView()
+            }
         }
     }
 }

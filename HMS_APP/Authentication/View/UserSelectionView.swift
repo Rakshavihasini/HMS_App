@@ -1,8 +1,6 @@
 import SwiftUI
 
 struct UserSelectionView: View {
-    @State private var selectedUserType: String? = nil
-    
     var body: some View {
         ZStack {
             Color(.systemBackground) // Background color
@@ -17,9 +15,9 @@ struct UserSelectionView: View {
                     .padding(.top, 40)
                 
                 // Cards
-                CardView(title: "Hospital", color: Color.blue)
-                CardView(title: "Doctor", color: Color.green)
-                CardView(title: "Patient", color: Color.red)
+                CardView(title: "Hospital", userType: "hospital", color: Color.blue)
+                CardView(title: "Doctor", userType: "doctor", color: Color.green)
+                CardView(title: "Patient", userType: "patient", color: Color.red)
                 
                 Spacer() // Pushes content to the top
             }
@@ -31,10 +29,11 @@ struct UserSelectionView: View {
 // Reusable Card View
 struct CardView: View {
     let title: String
+    let userType: String
     let color: Color
     
     var body: some View {
-        NavigationLink(destination: LoginScreen(),){
+        NavigationLink(destination: LoginScreen(userType: userType)){
             Text(title)
                 .font(.title2)
                 .fontWeight(.medium)
@@ -46,9 +45,7 @@ struct CardView: View {
                 .padding(.horizontal)
         }
     }
-    
 }
-
 
 // Preview
 #Preview {
