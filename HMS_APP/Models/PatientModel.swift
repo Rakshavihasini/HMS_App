@@ -5,8 +5,8 @@
 //  Created by Prasanjit Panda on 30/04/25.
 //
 
-
 import Foundation
+import FirebaseFirestore
 
 /// A model representing a patient in the healthcare system
 struct Patient: Identifiable, Codable {
@@ -104,5 +104,46 @@ extension Patient {
             dateOfBirth: dob,
             gender: "Female"
         )
+    }
+}
+
+// MARK: - PatientDetails Class
+class PatientDetails: ObservableObject {
+    @Published var patients: [Patient] = []
+    private let db = Firestore.firestore()
+    
+    func fetchPatients() {
+        db.collection("hms4_patients").addSnapshotListener { querySnapshot, error in
+            guard let documents = querySnapshot?.documents else {
+                print("Error fetching patients: \(error?.localizedDescription ?? "Unknown error")")
+                return
+            }
+            
+            self.patients = documents.compactMap { document -> Patient? in
+                let data = document.data()
+                return Patient(
+                    id: document.documentID,
+                    name: data["name"] as? String ?? "",
+                    number: data["number"] as? Int,
+                    email: data["email"] as? String ?? "",
+                    dateOfBirth: (data["dob"] as? Timestamp)?.dateValue(),
+                    gender: data["gender"] as? String
+                )
+            }
+        }
+    }
+    
+    func deletePatient(patient: Patient, completion: @escaping (Bool) -> Void) {
+        db.collection("hms4_patients").document(patient.id).delete() { error in
+            if let error = error {
+                print("Error removing patient: \(error.localizedDescription)")
+                completion(false)
+            } else {
+                if let index = self.patients.firstIndex(where: { $0.id == patient.id }) {
+                    self.patients.remove(at: index)
+                }
+                completion(true)
+            }
+        }
     }
 }
