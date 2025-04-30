@@ -6,14 +6,20 @@
 //
 
 import SwiftUI
+import FirebaseCore
 
 @main
 struct HMS_APPApp: App {
+    init() {
+        FirebaseApp.configure()
+    }
+    @StateObject private var authManager = AuthManager()
     var body: some Scene {
         WindowGroup {
             NavigationStack{
                 UserSelectionView()
             }
+            .environmentObject(authManager)
         }
     }
 }
