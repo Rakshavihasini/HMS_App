@@ -11,7 +11,9 @@ import SwiftUI
 struct HMS_APPApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            NavigationStack{
+                UserSelectionView()
+            }
         }
     }
 }
