@@ -229,7 +229,7 @@ struct TwoFAView: View {
             case "doctor":
                 HospitalView()
             case "patient":
-                HospitalView()
+                PatientHomeView()
             default:
                 ContentView()
             }
@@ -237,11 +237,11 @@ struct TwoFAView: View {
             // For signup flow
             switch userType {
             case "hospital":
-                HospitalEntryView()
+                HospitalView()
             case "doctor":
                 HospitalView()
             case "patient":
-                HospitalView()
+                PatientHomeView()
             default:
                 ContentView()
             }

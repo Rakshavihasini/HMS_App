@@ -21,6 +21,8 @@ struct Doctor: Identifiable, Codable {
     /// The doctor's email address for contact
     let email: String
     
+    let speciality: String
+    
     /// The doctor's license registration number
     let licenseRegNo: String?
     
@@ -70,6 +72,7 @@ struct Doctor: Identifiable, Codable {
         name: String,
         number: Int? = nil,
         email: String,
+        speciality: String,
         licenseRegNo: String? = nil,
         smc: String? = nil,
         gender: String? = nil,
@@ -81,6 +84,7 @@ struct Doctor: Identifiable, Codable {
         self.name = name
         self.number = number
         self.email = email
+        self.speciality = speciality
         self.licenseRegNo = licenseRegNo
         self.smc = smc
         self.gender = gender
@@ -96,6 +100,7 @@ struct Doctor: Identifiable, Codable {
         case name
         case number
         case email
+        case speciality
         case licenseRegNo = "licenseRegNo"
         case smc
         case gender
@@ -195,6 +200,7 @@ extension Doctor {
             name: "Dr. John Smith",
             number: 12345,
             email: "dr.john.smith@hospital.com",
+            speciality: "General Physician",
             licenseRegNo: "MED-12345-XY",
             smc: "Medical Council of India",
             gender: "Male",

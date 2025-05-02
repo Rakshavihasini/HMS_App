@@ -244,7 +244,7 @@ struct LoginScreen: View {
         case "doctor":
             HospitalView()
         case "patient":
-            HospitalView()
+            PatientHomeView()
         default:
             Text("Default Dashboard")
         }
