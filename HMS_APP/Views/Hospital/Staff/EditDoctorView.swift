@@ -71,6 +71,7 @@ struct EditDoctorView: View {
             name: name,
             number: doctor.number,
             email: email,
+            speciality: doctor.speciality,
             licenseRegNo: licenseNo.isEmpty ? nil : licenseNo,
             smc: smc.isEmpty ? nil : smc,
             gender: gender.isEmpty ? nil : gender,

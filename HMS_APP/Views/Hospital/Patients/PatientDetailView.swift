@@ -8,7 +8,7 @@
 import SwiftUI
 
 // Appointment model
-struct Appointment: Identifiable {
+struct Appointment1: Identifiable {
     let id = UUID()
     let type: String
     let date: String
@@ -28,10 +28,10 @@ struct PatientDetailView: View {
     let pending: String = "2400"
     
     // Mock appointments data
-    @State private var appointments: [Appointment] = [
-        Appointment(type: "General Checkup", date: "08-09-2023", time: "10:30 AM", status: "Completed", progress: 1.0),
-        Appointment(type: "Dental Cleaning", date: "15-10-2023", time: "02:15 PM", status: "Completed", progress: 1.0),
-        Appointment(type: "Annual Physical", date: "22-11-2023", time: "09:00 AM", status: "Completed", progress: 1.0)
+    @State private var appointments: [Appointment1] = [
+        Appointment1(type: "General Checkup", date: "08-09-2023", time: "10:30 AM", status: "Completed", progress: 1.0),
+        Appointment1(type: "Dental Cleaning", date: "15-10-2023", time: "02:15 PM", status: "Completed", progress: 1.0),
+        Appointment1(type: "Annual Physical", date: "22-11-2023", time: "09:00 AM", status: "Completed", progress: 1.0)
     ]
     
     var body: some View {
@@ -253,7 +253,7 @@ struct PatientDetailView: View {
 
 // Appointment card view
 struct FinalAppointmentCard: View {
-    let appointment: Appointment
+    let appointment: Appointment1
     let colorScheme: ColorScheme
     
     var body: some View {
