@@ -23,6 +23,7 @@ class AdminFirestoreService {
     
     // Add a new admin to Firestore
     func addAdmin(userId: String, admin: Admin1) async throws {
+
         let adminData: [String: Any] = [
             "adminId": admin.id,
             "name": admin.name,
@@ -42,6 +43,7 @@ class AdminFirestoreService {
     
     // Get admin details by appwrite userId
     func getAdmin(userId: String) async throws -> Admin1? {
+
         let document = try await db.collection("\(dbName)_admins").document(userId).getDocument()
         
         if document.exists, let data = document.data() {
@@ -80,6 +82,7 @@ class AdminFirestoreService {
     
     // Create admin if it doesn't exist
     func getOrCreateAdmin(userId: String, name: String, email: String, role: String? = nil, accessLevel: Admin1.AccessLevel? = .readonly) async throws -> Admin1 {
+
         if let existingAdmin = try? await getAdmin(userId: userId) {
             return existingAdmin
         }

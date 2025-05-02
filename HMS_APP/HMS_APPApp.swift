@@ -8,7 +8,6 @@
 import SwiftUI
 import FirebaseCore
 
-
 @main
 struct HMS_APPApp: App {
     init() {
