@@ -22,7 +22,8 @@ class AdminFirestoreService {
     }
     
     // Add a new admin to Firestore
-    func addAdmin(userId: String, admin: Admin) async throws {
+    func addAdmin(userId: String, admin: Admin1) async throws {
+
         let adminData: [String: Any] = [
             "adminId": admin.id,
             "name": admin.name,
@@ -41,7 +42,8 @@ class AdminFirestoreService {
     }
     
     // Get admin details by appwrite userId
-    func getAdmin(userId: String) async throws -> Admin? {
+    func getAdmin(userId: String) async throws -> Admin1? {
+
         let document = try await db.collection("\(dbName)_admins").document(userId).getDocument()
         
         if document.exists, let data = document.data() {
@@ -58,12 +60,12 @@ class AdminFirestoreService {
             }
             
             // Parse access level
-            var accessLevel: Admin.AccessLevel? = nil
+            var accessLevel: Admin1.AccessLevel? = nil
             if let accessLevelString = data["accessLevel"] as? String {
-                accessLevel = Admin.AccessLevel(rawValue: accessLevelString)
+                accessLevel = Admin1.AccessLevel(rawValue: accessLevelString)
             }
             
-            return Admin(
+            return Admin1(
                 id: data["adminId"] as? String ?? "",
                 name: data["name"] as? String ?? "",
                 number: data["number"] as? Int,
@@ -79,13 +81,14 @@ class AdminFirestoreService {
     }
     
     // Create admin if it doesn't exist
-    func getOrCreateAdmin(userId: String, name: String, email: String, role: String? = nil, accessLevel: Admin.AccessLevel? = .readonly) async throws -> Admin {
+    func getOrCreateAdmin(userId: String, name: String, email: String, role: String? = nil, accessLevel: Admin1.AccessLevel? = .readonly) async throws -> Admin1 {
+
         if let existingAdmin = try? await getAdmin(userId: userId) {
             return existingAdmin
         }
         
         // Create new admin if one doesn't exist
-        let newAdmin = Admin(
+        let newAdmin = Admin1(
             id: UUID().uuidString,
             name: name,
             email: email,

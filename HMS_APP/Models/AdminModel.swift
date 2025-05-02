@@ -8,7 +8,7 @@
 import Foundation
 
 /// A model representing an administrator in the healthcare system
-struct Admin: Identifiable, Codable {
+struct Admin1: Identifiable, Codable {
     /// The unique identifier for the admin, used by the Appwrite backend
     let id: String
     
@@ -142,14 +142,14 @@ struct Admin: Identifiable, Codable {
 
 // MARK: - Extensions for Admin
 
-extension Admin {
+extension Admin1 {
     /// Creates a sample admin for preview and testing purposes
-    static var sample: Admin {
+    static var sample: Admin1 {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
         let dob = dateFormatter.date(from: "1982-11-10")
         
-        return Admin(
+        return Admin1(
             id: "admin456",
             name: "Michael Chen",
             number: 9876,

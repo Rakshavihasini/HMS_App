@@ -5,9 +5,16 @@
 //
 
 import SwiftUI
+import FirebaseFirestore
 
 struct SignUpScreen: View {
     @Environment(\.colorScheme) var colorScheme
+    
+    var userType: String
+    
+    init(userType: String) {
+        self.userType = userType
+    }
     
     @StateObject private var authService = AuthService()
     @EnvironmentObject var authManager: AuthManager
@@ -43,7 +50,7 @@ struct SignUpScreen: View {
         let isDark = colorScheme == .dark
         
         VStack(spacing: 20) {
-            Text("Sign Up")
+            Text("\(userType.capitalized) Sign Up")
                 .font(.system(size: 24, weight: .bold))
                 .foregroundColor(isDark ? Theme.dark.tertiary : Theme.light.tertiary)
             
@@ -153,10 +160,10 @@ struct SignUpScreen: View {
         .frame(maxHeight: .infinity, alignment: .center)
         .background(isDark ? Theme.dark.background : Theme.light.background)
         .navigationDestination(isPresented: $navigateToLogIn) {
-            LoginScreen()
+            LoginScreen(userType: userType)
         }
         .navigationDestination(isPresented: $navigateTo2FA) {
-            TwoFAView(isLoginFlow: false, email: email)
+            TwoFAView(isLoginFlow: false, email: email, userType: userType)
                 .environmentObject(authManager)
         }
         .navigationBarBackButtonHidden()
@@ -211,10 +218,45 @@ struct SignUpScreen: View {
         
         do {
             try await authService.register()
+            
+            // Store user data in the appropriate collection based on userType
+            try await storeUserData()
+            
+            // All users proceed to 2FA regardless of type
             try await authService.sendEmailOTP()
             navigateTo2FA = true
         } catch {
             errorMessage = "Registration failed: \(error.localizedDescription)"
+        }
+    }
+    
+    // Store user data in Firestore based on user type
+    private func storeUserData() async throws {
+        let db = Firestore.firestore()
+        let collectionName = getCollectionName()
+        
+        let userData: [String: Any] = [
+            "userName": userName,
+            "name": name,
+            "email": email,
+            "createdAt": Date(),
+            "userType": userType
+        ]
+        
+        try await db.collection(collectionName).document().setData(userData)
+    }
+    
+    // Get the appropriate Firestore collection name based on user type
+    private func getCollectionName() -> String {
+        switch userType {
+        case "hospital":
+            return "hms4_admins"
+        case "doctor":
+            return "hms4_doctors"
+        case "patient":
+            return "hms4_patients"
+        default:
+            return "hms4_users"
         }
     }
 }

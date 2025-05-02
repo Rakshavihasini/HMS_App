@@ -11,6 +11,12 @@ import FirebaseFirestore
 struct LoginScreen: View {
     @Environment(\.colorScheme) var colorScheme
     
+    var userType: String
+    
+    init(userType: String) {
+        self.userType = userType
+    }
+    
     @StateObject private var authService = AuthService()
     @EnvironmentObject var authManager: AuthManager
     @State private var email: String = ""
@@ -19,6 +25,7 @@ struct LoginScreen: View {
     @State private var passwordError: String? = nil
     @State private var navigateToSignup = false
     @State private var navigateTo2FA = false
+    @State private var navigateToDashboard = false
     @State private var errorMessage: String? = nil
 
     private var isFormValid: Bool {
@@ -30,7 +37,7 @@ struct LoginScreen: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Text("Login")
+            Text("\(userType.capitalized) Login")
                 .font(.system(size: 24, weight: .bold))
                 .foregroundColor(colorScheme == .dark ? Theme.dark.tertiary : Theme.light.tertiary)
             
@@ -117,10 +124,13 @@ struct LoginScreen: View {
         .frame(maxHeight: .infinity, alignment: .center)
         .background(colorScheme == .dark ? Theme.dark.background : Theme.light.background)
         .navigationDestination(isPresented: $navigateToSignup) {
-            SignUpScreen()
+            SignUpScreen(userType: userType)
         }
         .navigationDestination(isPresented: $navigateTo2FA) {
-            TwoFAView(isLoginFlow: true, email: email)
+            TwoFAView(isLoginFlow: true, email: email, userType: userType)
+        }
+        .navigationDestination(isPresented: $navigateToDashboard) {
+            getDashboardView()
         }
         .navigationBarBackButtonHidden()
     }
@@ -158,43 +168,89 @@ struct LoginScreen: View {
         authService.password = password
         
         do {
-            // First try to login with Appwrite
-            try await authService.login()
-            
-            // Check if admin exists in the hms_admin Firestore collection
-            if await checkAdminExists(email: email) {
-                // If admin record exists, proceed to 2FA
+            // First check if user exists in Firestore
+            if await checkUserExists(email: email) {
+                // Then try to login with Appwrite
+                try await authService.login()
+                
+                // If successful, proceed to 2FA
                 try await authService.sendEmailOTP()
                 navigateTo2FA = true
             } else {
-                // No admin record exists
-                errorMessage = "No admin account found. Please sign up first."
-                
-                // Logout from Appwrite since we won't proceed
-                await authService.logout()
+                // No user record exists
+                errorMessage = "No \(userType) account found with email: \(email). Please check your user type or sign up first."
             }
         } catch {
             errorMessage = "Login failed: \(error.localizedDescription)"
+            // Add additional error logging
+            print("Login error details - Email: \(email), UserType: \(userType), Error: \(error)")
         }
     }
     
-    // Check if admin record exists in Firestore with the given email
-    private func checkAdminExists(email: String) async -> Bool {
+    // Check if user record exists in Firestore with the given email
+    private func checkUserExists(email: String) async -> Bool {
         do {
             let db = Firestore.firestore()
-            let snapshot = try await db.collection("hms4_admins")
-                .whereField("email", isEqualTo: email)
+            let collectionName = getCollectionName()
+            let normalizedEmail = email.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            print("DEBUG - Login Check:")
+            print("- User Type: \(userType)")
+            print("- Collection Name: \(collectionName)")
+            print("- Normalized Email: \(normalizedEmail)")
+            
+            let snapshot = try await db.collection(collectionName)
+                .whereField("email", isEqualTo: normalizedEmail)
                 .limit(to: 1)
                 .getDocuments()
             
-            return !snapshot.documents.isEmpty
+            let exists = !snapshot.documents.isEmpty
+            print("- Query Result: \(exists)")
+            if exists {
+                print("- Found Document ID: \(snapshot.documents[0].documentID)")
+                print("- Document Data: \(snapshot.documents[0].data())")
+            }
+            
+            return exists
         } catch {
-            print("Error checking admin record: \(error.localizedDescription)")
+            print("DEBUG - Error Details:")
+            print("- Error Description: \(error.localizedDescription)")
+            print("- User Type: \(userType)")
+            print("- Collection: \(getCollectionName())")
             return false
+        }
+    }
+    
+    // Get the appropriate Firestore collection name based on user type
+    private func getCollectionName() -> String {
+        switch userType.lowercased() {
+        case "hospital":
+            return "hms4_admins"
+        case "doctor":
+            return "hms4_doctors"
+        case "patient":
+            return "hms4_patients"
+        default:
+            return "hms4_users"
+        }
+    }
+    
+    // Return the appropriate dashboard view based on user type
+    @ViewBuilder
+    private func getDashboardView() -> some View {
+        switch userType {
+        case "hospital":
+            HospitalView()
+        case "doctor":
+            HospitalView()
+        case "patient":
+            HospitalView()
+        default:
+            Text("Default Dashboard")
         }
     }
 }
 
 #Preview {
-    LoginScreen()
+    LoginScreen(userType: "hospital")
 }
