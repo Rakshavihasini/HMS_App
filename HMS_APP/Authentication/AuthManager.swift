@@ -12,26 +12,23 @@ struct UserInfo {
     let name: String
     let email: String
     let role: String
-    let hospitalName: String
     let userType: String
     
     // Initialize from Admin model
-    init(from admin: Admin) {
+    init(from admin: Admin1) {
         self.id = admin.id
         self.name = admin.name
         self.email = admin.email
-        self.role = admin.role
-        self.hospitalName = admin.hospitalName
+        self.role = admin.role ?? ""
         self.userType = "hospital"  // Default for admin is hospital
     }
     
     // Default initialization
-    init(id: String, name: String, email: String, role: String = "Admin", hospitalName: String = "General Hospital", userType: String = "hospital") {
+    init(id: String, name: String, email: String, role: String = "Admin", userType: String = "hospital") {
         self.id = id
         self.name = name
         self.email = email
         self.role = role
-        self.hospitalName = hospitalName
         self.userType = userType
     }
 }
@@ -76,9 +73,8 @@ class AuthManager: ObservableObject {
             let name = userName.isEmpty ? (currentUser?.name ?? "") : userName
             let email = userEmail.isEmpty ? (currentUser?.email ?? "") : userEmail
             let role = currentUser?.role ?? "Admin"
-            let hospitalName = currentUser?.hospitalName ?? "General Hospital"
             
-            currentUser = UserInfo(id: userId, name: name, email: email, role: role, hospitalName: hospitalName, userType: userType)
+            currentUser = UserInfo(id: userId, name: name, email: email, role: role, userType: userType)
             saveUserInfoToDefaults()
         }
         
@@ -106,7 +102,7 @@ class AuthManager: ObservableObject {
         let type = userType ?? currentUser?.userType ?? UserDefaults.standard.string(forKey: "userType") ?? "hospital"
         
         // Update local state
-        currentUser = UserInfo(id: currentUserID, name: name, email: email, role: role, hospitalName: hospitalName, userType: type)
+        currentUser = UserInfo(id: currentUserID, name: name, email: email, role: role, userType: type)
         saveUserInfoToDefaults()
         
         // Only update Firestore for hospital users (admins)
@@ -117,7 +113,6 @@ class AuthManager: ObservableObject {
                     name: name,
                     email: email,
                     role: role,
-                    hospitalName: hospitalName
                 )
                 
                 // If the admin already exists, update the fields
@@ -184,7 +179,6 @@ class AuthManager: ObservableObject {
         UserDefaults.standard.set(user.name, forKey: "userName")
         UserDefaults.standard.set(user.email, forKey: "userEmail")
         UserDefaults.standard.set(user.role, forKey: "userRole")
-        UserDefaults.standard.set(user.hospitalName, forKey: "userHospitalName")
         UserDefaults.standard.set(user.userType, forKey: "userType")
     }
     
@@ -195,9 +189,8 @@ class AuthManager: ObservableObject {
         let name = UserDefaults.standard.string(forKey: "userName") ?? "Hospital Admin"
         let email = UserDefaults.standard.string(forKey: "userEmail") ?? ""
         let role = UserDefaults.standard.string(forKey: "userRole") ?? "Admin"
-        let hospitalName = UserDefaults.standard.string(forKey: "userHospitalName") ?? "General Hospital"
         let userType = UserDefaults.standard.string(forKey: "userType") ?? "hospital"
         
-        return UserInfo(id: currentUserID, name: name, email: email, role: role, hospitalName: hospitalName, userType: userType)
+        return UserInfo(id: currentUserID, name: name, email: email, role: role, userType: userType)
     }
 }

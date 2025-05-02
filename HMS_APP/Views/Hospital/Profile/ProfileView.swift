@@ -25,7 +25,7 @@ struct ProfileView: View {
         NavigationView {
             ZStack {
                 // Dynamic background color
-                (colorScheme == .dark ? Color(UIColor.systemGray6) : Theme.light.background)
+                (colorScheme == .dark ? Theme.dark.background : Theme.light.background)
                     .edgesIgnoringSafeArea(.all)
                 
                 ScrollView {
@@ -76,12 +76,6 @@ struct ProfileView: View {
                                 .background(colorScheme == .dark ? Color(.systemGray6) : Color(.systemGray5))
                                 .cornerRadius(12)
                                 
-                            if let user = authManager.currentUser, !user.hospitalName.isEmpty && user.hospitalName != "General Hospital" {
-                                Text(user.hospitalName)
-                                    .font(.caption)
-                                    .foregroundColor(colorScheme == .dark ? .white.opacity(0.7) : .secondary)
-                                    .padding(.top, 2)
-                            }
                         }
                         .padding(.vertical, 20)
                         .frame(maxWidth: .infinity)
@@ -495,7 +489,6 @@ struct EditProfileView: View {
                 if let user = authManager.currentUser {
                     newUserName = user.name
                     email = user.email
-                    hospitalName = user.hospitalName
                 } else {
                     newUserName = userName
                 }

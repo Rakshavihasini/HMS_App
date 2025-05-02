@@ -15,7 +15,7 @@ struct HospitalView: View {
                 } else if selectedTab == 2 {
                     PatientsListView(selectedTab: $selectedTab)
                 } else if selectedTab == 3 {
-                    //ProfileView(selectedTab: $selectedTab)
+                    ProfileView(selectedTab: $selectedTab)
                 }
             }
             

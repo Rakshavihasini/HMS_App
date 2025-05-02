@@ -12,7 +12,7 @@ import FirebaseFirestore
 import SwiftUI
 
 // ObservableObject to fetch patient data
-class PatientDetails: ObservableObject {
+class PatientDetailsService: ObservableObject {
     @Published var patients: [Patient] = []
     private let db = Firestore.firestore()
     private let dbName = "hms4"

@@ -8,6 +8,10 @@ struct StaffListView: View {
     
     let filters = ["All", "Doctors", "Nurses", "Admin"]
     
+    var currentTheme: Theme {
+        colorScheme == .dark ? Theme.dark : Theme.light
+    }
+    
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
@@ -41,7 +45,7 @@ struct StaffListView: View {
             }
             .navigationTitle("Staff")
             .searchable(text: $searchText, prompt: "Search staff...")
-            .background(Color(.systemGroupedBackground))
+            .background(currentTheme.background)
         }
     }
 }
