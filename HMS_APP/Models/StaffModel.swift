@@ -15,6 +15,8 @@ struct Staff: Identifiable, Codable {
     /// The staff member's full name
     let name: String
     
+    let email: String
+    
     /// The staff member's date of birth
     let dateOfBirth: Date?
     
@@ -42,6 +44,7 @@ struct Staff: Identifiable, Codable {
     init(
         id: String,
         name: String,
+        email: String,
         dateOfBirth: Date? = nil,
         joinDate: Date? = nil,
         educationalQualification: String? = nil,
@@ -50,6 +53,7 @@ struct Staff: Identifiable, Codable {
     ) {
         self.id = id
         self.name = name
+        self.email = email
         self.dateOfBirth = dateOfBirth
         self.joinDate = joinDate
         self.educationalQualification = educationalQualification
@@ -62,6 +66,7 @@ struct Staff: Identifiable, Codable {
     enum CodingKeys: String, CodingKey {
         case id = "uuid"
         case name
+        case email
         case dateOfBirth = "dob"
         case joinDate
         case educationalQualification
@@ -136,6 +141,7 @@ extension Staff {
         return Staff(
             id: "staff789",
             name: "Sarah Johnson",
+            email: "sarah123@gmail.com",
             dateOfBirth: dob,
             joinDate: joinDate,
             educationalQualification: "BSc Nursing",
