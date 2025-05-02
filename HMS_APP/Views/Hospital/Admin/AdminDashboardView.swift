@@ -11,15 +11,44 @@ import Charts
 struct AdminDashboardView: View {
     @Binding var selectedTab: Int
     @Environment(\.colorScheme) var colorScheme
+    @EnvironmentObject var authManager: AuthManager
     
     var currentTheme: Theme {
         colorScheme == .dark ? Theme.dark : Theme.light
+    }
+    
+    private var greeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        let userName = authManager.currentUser?.name ?? "Admin"
+        
+        switch hour {
+        case 5..<12:
+            return "Good Morning,\n\(userName)"
+        case 12..<17:
+            return "Good Afternoon,\n\(userName)"
+        case 17..<22:
+            return "Good Evening,\n\(userName)"
+        default:
+            return "Hello,\n\(userName)"
+        }
     }
     
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 24) {
+                    // Personalized Greeting
+                    HStack {
+                        Text(greeting)
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(currentTheme.text)
+                            .multilineTextAlignment(.leading)
+                        
+                        Spacer()
+                    }
+                    .padding(.horizontal)
+                    
                     // Summary Stats
                     HStack(spacing: 16) {
                         NavigationLink(destination: ConsultationDetailView()) {
@@ -57,8 +86,8 @@ struct AdminDashboardView: View {
                 }
                 .padding(.top)
             }
-            .navigationTitle("Dashboard")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
 //            .toolbar {
 //                ToolbarItem(placement: .navigationBarTrailing) {
 //                    HStack {

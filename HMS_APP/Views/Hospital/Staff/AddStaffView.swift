@@ -4,6 +4,8 @@ struct AddStaffView: View {
     @Environment(\.colorScheme) var colorScheme
     @Environment(\.dismiss) var dismiss
     @StateObject private var staffService = StaffService()
+    
+    // State variables
     @State private var fullName: String = ""
     @State private var dateOfBirth: Date = {
         let calendar = Calendar.current
@@ -17,6 +19,8 @@ struct AddStaffView: View {
     @State private var selectedDesignation: String = ""
     @State private var email: String = ""
     @State private var education: String = ""
+    
+    // UI State variables
     @State private var showingDateOfBirthPicker = false
     @State private var showingDateOfJoiningPicker = false
     @State private var showingDesignationPicker = false
@@ -25,6 +29,7 @@ struct AddStaffView: View {
     @State private var isSaving = false
     @State private var showErrorAlert = false
     @State private var errorMessage: String = ""
+    @State private var animationProgress: CGFloat = 0
 
     let designations = ["Nurse", "Pharmacist", "Receptionist", "Counselor", "Lab Technician"]
     
@@ -33,32 +38,174 @@ struct AddStaffView: View {
     }
 
     var body: some View {
-        ScrollView {
-            content
-        }
-        .navigationTitle("Add Staff Member")
-        .background(currentTheme.background.edgesIgnoringSafeArea(.all))
-        .alert(isPresented: $showErrorAlert) {
-            Alert(
-                title: Text("Error"),
-                message: Text(errorMessage),
-                dismissButton: .default(Text("OK"))
-            )
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 20) {
+                    headerSection
+                    
+                    personalInfoCard
+                    
+                    professionalDetailsCard
+                    
+                    certificatesSection
+                    
+                    saveButton
+                        .padding()
+                }
+                .padding(.vertical)
+                .animation(.spring(), value: animationProgress)
+            }
+            .navigationTitle("Add Staff Member")
+            .navigationBarTitleDisplayMode(.inline)
+            .background(currentTheme.background.edgesIgnoringSafeArea(.all))
+            .alert(isPresented: $showErrorAlert) {
+                Alert(
+                    title: Text("Error"),
+                    message: Text(errorMessage),
+                    dismissButton: .default(Text("OK"))
+                )
+            }
+            // .toolbar {
+            //     ToolbarItem(placement: .navigationBarLeading) {
+            //         Button(action: { dismiss() }) {
+            //             Image(systemName: "chevron.left")
+            //             Text("Back")
+            //         }
+            //     }
+            // }
+            .onAppear {
+                animateEntrance()
+            }
         }
     }
     
-    private var content: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            nameField
-            dobField
-            joiningDateField
-            designationField
-            emailField
-            educationField
-            certificatesSection
-            saveButton
+    private func animateEntrance() {
+        withAnimation(.spring(response: 0.7, dampingFraction: 0.8, blendDuration: 0.5)) {
+            animationProgress = 1
+        }
+    }
+    
+    private var headerSection: some View {
+        VStack(alignment: .center, spacing: 10) {
+            Image(systemName: "person.badge.plus")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 60, height: 60)
+                .foregroundColor(currentTheme.primary)
+                .scaleEffect(1 + (1 - animationProgress) * 0.2)
+            
+            Text("Add New Staff Member")
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundColor(currentTheme.text)
+                .opacity(animationProgress)
+            
+            Text("Please fill in the staff member's details")
+                .font(.subheadline)
+                .foregroundColor(currentTheme.text.opacity(0.7))
+                .opacity(animationProgress)
         }
         .padding()
+        .frame(maxWidth: .infinity)
+        .background(currentTheme.secondary.opacity(0.1))
+        .offset(x: (1 - animationProgress) * 50)
+    }
+    
+    private var personalInfoCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            sectionHeader(title: "Personal Information")
+            
+            nameField
+            dobField
+            emailField
+        }
+        .padding()
+        .background(currentTheme.card)
+        .cornerRadius(16)
+        .shadow(color: currentTheme.shadow.opacity(0.1), radius: 5, x: 0, y: 2)
+        .scaleEffect(1 - (1 - animationProgress) * 0.1)
+        .opacity(animationProgress)
+        .offset(x: (1 - animationProgress) * -50)
+    }
+    
+    private var professionalDetailsCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            sectionHeader(title: "Professional Details")
+            
+            joiningDateField
+            designationField
+            educationField
+        }
+        .padding()
+        .background(currentTheme.card)
+        .cornerRadius(16)
+        .shadow(color: currentTheme.shadow.opacity(0.1), radius: 5, x: 0, y: 2)
+        .scaleEffect(1 - (1 - animationProgress) * 0.1)
+        .opacity(animationProgress)
+        .offset(x: (1 - animationProgress) * 50)
+    }
+    
+    private func sectionHeader(title: String) -> some View {
+        HStack {
+            Text(title)
+                .font(.headline)
+                .foregroundColor(currentTheme.primary)
+            Spacer()
+        }
+    }
+    
+    private var saveButton: some View {
+        Button(action: saveStaff) {
+            HStack {
+                Image(systemName: "checkmark.circle.fill")
+                Text(isSaving ? "Saving..." : "Save Staff Member")
+                    .fontWeight(.semibold)
+            }
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(isFormValid ? currentTheme.primary : .gray)
+            .foregroundColor(.white)
+            .cornerRadius(12)
+            .shadow(color: currentTheme.shadow.opacity(0.2), radius: 5, x: 0, y: 2)
+            .scaleEffect(isFormValid ? 1 : 0.95)
+            .animation(.spring(), value: isFormValid)
+        }
+        .disabled(!isFormValid || isSaving)
+        .opacity(animationProgress)
+        .offset(y: (1 - animationProgress) * 50)
+    }
+    
+    private var isFormValid: Bool {
+        !fullName.isEmpty && 
+        !email.isEmpty && 
+        !selectedDesignation.isEmpty && 
+        !education.isEmpty && 
+        !uploadedCertificates.isEmpty
+    }
+    
+    private func saveStaff() {
+        isSaving = true
+        let staff = Staff(
+            id: UUID().uuidString,
+            name: fullName,
+            email: email,
+            dateOfBirth: dateOfBirth,
+            joinDate: dateOfJoining,
+            educationalQualification: education,
+            certificates: [],
+            staffRole: selectedDesignation
+        )
+        
+        staffService.addStaff(staff, certificateFiles: uploadedCertificates) { result in
+            isSaving = false
+            switch result {
+            case .success:
+                dismiss()
+            case .failure(let error):
+                errorMessage = error.localizedDescription
+                showErrorAlert = true
+            }
+        }
     }
     
     private var nameField: some View {
@@ -111,7 +258,7 @@ struct AddStaffView: View {
     }
     
     private var certificatesSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 16) {
             Text("Certificates")
                 .font(.headline)
                 .foregroundColor(currentTheme.primary)
@@ -172,50 +319,6 @@ struct AddStaffView: View {
                     .foregroundColor(.red)
             }
         }
-    }
-    
-    private var saveButton: some View {
-        Button(action: {
-            isSaving = true
-            let staff = Staff(
-                id: UUID().uuidString,
-                name: fullName,
-                email: email,
-                dateOfBirth: dateOfBirth,
-                joinDate: dateOfJoining,
-                educationalQualification: education,
-                certificates: [],
-                staffRole: selectedDesignation
-            )
-            
-            staffService.addStaff(staff, certificateFiles: uploadedCertificates) { result in
-                isSaving = false
-                switch result {
-                case .success:
-                    dismiss()
-                case .failure(let error):
-                    errorMessage = error.localizedDescription
-                    showErrorAlert = true
-                }
-            }
-        }) {
-            HStack {
-                Image(systemName: "plus")
-                Text(isSaving ? "Saving..." : "Add Staff Member")
-                    .fontWeight(.medium)
-            }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(currentTheme.primary)
-            .foregroundColor(.white)
-            .cornerRadius(8)
-            .disabled(isSaving || 
-                      fullName.isEmpty || 
-                      selectedDesignation.isEmpty || 
-                      education.isEmpty || 
-                      uploadedCertificates.isEmpty)
-        }
-        .padding(.vertical)
     }
 
     func formattedDate(_ date: Date) -> String {
