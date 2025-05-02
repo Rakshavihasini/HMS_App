@@ -112,7 +112,7 @@ class AuthManager: ObservableObject {
                     userId: currentUserID,
                     name: name,
                     email: email,
-                    role: role,
+                    role: role
                 )
                 
                 // If the admin already exists, update the fields

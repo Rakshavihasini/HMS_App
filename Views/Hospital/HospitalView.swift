@@ -5,28 +5,28 @@ struct HospitalView: View {
     
     var body: some View {
         TabView(selection: $selectedTab) {
-            AdminDashboardView()
+            AdminDashboardView(selectedTab: $selectedTab)
                 .tabItem {
                     Image(systemName: "chart.bar.fill")
                     Text("Dashboard")
                 }
                 .tag(0)
             
-            StaffListView()
+            StaffListView(selectedTab: $selectedTab)
                 .tabItem {
                     Image(systemName: "person.2.fill")
                     Text("Staff")
                 }
                 .tag(1)
             
-            PatientsListView()
+            PatientsListView(selectedTab: $selectedTab)
                 .tabItem {
                     Image(systemName: "heart.fill")
                     Text("Patients")
                 }
                 .tag(2)
             
-            ProfileView()
+            ProfileView(selectedTab: $selectedTab)
                 .tabItem {
                     Image(systemName: "person.circle.fill")
                     Text("Profile")

@@ -137,4 +137,23 @@ class DoctorService: ObservableObject {
             }
         }
     }
+    
+    // Delete a doctor from Firestore
+    func deleteDoctor(doctor: Doctor, completion: @escaping (Bool) -> Void) {
+        db.collection("\(dbName)_doctors").document(doctor.id).delete { error in
+            if let error = error {
+                print("❌ Error removing doctor: \(error.localizedDescription)")
+                completion(false)
+            } else {
+                print("✅ Doctor removed successfully")
+                
+                // Remove from local array if needed
+                if let index = self.doctors.firstIndex(where: { $0.id == doctor.id }) {
+                    self.doctors.remove(at: index)
+                }
+                
+                completion(true)
+            }
+        }
+    }
 }

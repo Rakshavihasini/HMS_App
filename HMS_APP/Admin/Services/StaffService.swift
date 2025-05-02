@@ -54,6 +54,7 @@ class StaffService: ObservableObject {
                     let staff = Staff(
                         id: document.documentID,
                         name: data["name"] as? String ?? "",
+                        email: data["email"] as? String ?? "",
                         dateOfBirth: dateOfBirth,
                         joinDate: joinDate,
                         educationalQualification: data["educationalQualification"] as? String,
@@ -132,6 +133,50 @@ class StaffService: ObservableObject {
                     print("✅ Staff saved successfully")
                     completion(.success(()))
                 }
+            }
+        }
+    }
+    
+    // Update an existing staff member
+    func updateStaff(_ staff: Staff, completion: @escaping (Result<Void, Error>) -> Void) {
+        let staffData: [String: Any] = [
+            "uuid": staff.id,
+            "name": staff.name,
+            "email": staff.email as Any,
+            "dateOfBirth": staff.dateOfBirth as Any,
+            "joinDate": staff.joinDate as Any,
+            "educationalQualification": staff.educationalQualification as Any,
+            "certificates": staff.certificates as Any,
+            "staffRole": staff.staffRole as Any,
+            "updatedAt": Timestamp(date: Date())
+        ]
+        
+        db.collection("\(dbName)_staff").document(staff.id).updateData(staffData) { error in
+            if let error = error {
+                print("❌ Error updating staff: \(error)")
+                completion(.failure(error))
+            } else {
+                print("✅ Staff updated successfully")
+                completion(.success(()))
+            }
+        }
+    }
+    
+    // Delete a staff member from Firestore
+    func deleteStaff(staff: Staff, completion: @escaping (Bool) -> Void) {
+        db.collection("\(dbName)_staff").document(staff.id).delete { error in
+            if let error = error {
+                print("❌ Error removing staff: \(error.localizedDescription)")
+                completion(false)
+            } else {
+                print("✅ Staff removed successfully")
+                
+                // Remove from local array if needed
+                if let index = self.staffMembers.firstIndex(where: { $0.id == staff.id }) {
+                    self.staffMembers.remove(at: index)
+                }
+                
+                completion(true)
             }
         }
     }

@@ -8,12 +8,19 @@
 import SwiftUI
 
 struct ContentView: View {
+    @StateObject var hell = PatientDetails()
     var body: some View {
         VStack {
             Image(systemName: "globe")
                 .imageScale(.large)
                 .foregroundStyle(.tint)
-            Text("Hello, world!")
+            Button(action:{
+                Task{
+                    hell.fetchPatients()
+                }
+            }){
+                Text("Click")
+            }
         }
         .padding()
     }
