@@ -70,6 +70,7 @@ class DoctorService: ObservableObject {
                         name: data["name"] as? String ?? "",
                         number: data["number"] as? Int,
                         email: data["email"] as? String ?? "",
+                        speciality: data["speciality"] as? String ?? "",
                         licenseRegNo: data["licenseRegNo"] as? String,
                         smc: data["smc"] as? String,
                         gender: data["gender"] as? String,

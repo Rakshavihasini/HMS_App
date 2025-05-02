@@ -85,7 +85,7 @@ struct ProfileView: View {
 
                         
                         // General Section
-                        SectionHeader(title: "General")
+                        SectionHeaderAdmin(title: "General")
                             .padding(.horizontal)
                             .padding(.top, 8)
                         
@@ -299,7 +299,7 @@ struct ProfileView: View {
 
 // MARK: - Supporting Views
 
-struct SectionHeader: View {
+struct SectionHeaderAdmin: View {
     @Environment(\.colorScheme) var colorScheme
     let title: String
     

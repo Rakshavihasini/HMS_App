@@ -15,6 +15,7 @@
 		35B5495C2DC2A38100C74C0F /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 35B5495B2DC2A38100C74C0F /* FirebaseAuth */; };
 		35B5495E2DC2A38700C74C0F /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 35B5495D2DC2A38700C74C0F /* FirebaseFirestore */; };
 		35B54C762DC47FB600C74C0F /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 35B54C752DC47FB600C74C0F /* FirebaseStorage */; };
+		35B54E772DC48C2200C74C0F /* FirebaseVertexAI in Frameworks */ = {isa = PBXBuildFile; productRef = 35B54E762DC48C2200C74C0F /* FirebaseVertexAI */; };
 		7802C7BF2DC29FE80071A2FF /* Appwrite in Frameworks */ = {isa = PBXBuildFile; productRef = 7802C7BE2DC29FE80071A2FF /* Appwrite */; };
 /* End PBXBuildFile section */
 
@@ -42,6 +43,7 @@
 				35B549572DC2A37100C74C0F /* FirebaseAppCheck in Frameworks */,
 				35B549552DC2A37100C74C0F /* FirebaseAnalyticsWithoutAdIdSupport in Frameworks */,
 				35B5495E2DC2A38700C74C0F /* FirebaseFirestore in Frameworks */,
+				35B54E772DC48C2200C74C0F /* FirebaseVertexAI in Frameworks */,
 				35B5495C2DC2A38100C74C0F /* FirebaseAuth in Frameworks */,
 				35B549592DC2A37100C74C0F /* FirebaseAppDistribution-Beta in Frameworks */,
 			);
@@ -103,6 +105,7 @@
 				35B5495B2DC2A38100C74C0F /* FirebaseAuth */,
 				35B5495D2DC2A38700C74C0F /* FirebaseFirestore */,
 				35B54C752DC47FB600C74C0F /* FirebaseStorage */,
+				35B54E762DC48C2200C74C0F /* FirebaseVertexAI */,
 			);
 			productName = HMS_APP;
 			productReference = 7802C7AF2DC29F500071A2FF /* HMS_APP.app */;
@@ -428,6 +431,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 35B5494F2DC2A37100C74C0F /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseStorage;
+		};
+		35B54E762DC48C2200C74C0F /* FirebaseVertexAI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 35B5494F2DC2A37100C74C0F /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseVertexAI;
 		};
 		7802C7BE2DC29FE80071A2FF /* Appwrite */ = {
 			isa = XCSwiftPackageProductDependency;

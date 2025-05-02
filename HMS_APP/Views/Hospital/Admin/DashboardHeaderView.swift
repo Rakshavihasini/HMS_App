@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct DashboardHeaderView: View {
+struct AdminDashboardHeaderView: View {
     @State private var searchText = ""
     @Environment(\.colorScheme) var colorScheme
     
