@@ -20,6 +20,7 @@ struct ProfileView: View {
     @State private var isDeleting = false
     @State private var showDeletionError = false
     @State private var deletionErrorMessage = ""
+    @State private var navigateToLogin = false
     
     var body: some View {
         NavigationView {
@@ -151,6 +152,9 @@ struct ProfileView: View {
                 Text(deletionErrorMessage)
             }
         }
+        .navigationDestination(isPresented: $navigateToLogin) {
+            UserSelectionView()
+        }
         .navigationDestination(isPresented: $navigateToSignUp) {
             SignUpScreen(userType: "Doctor")
         }
@@ -187,7 +191,7 @@ struct ProfileView: View {
     
     private func handleLogout() async {
         await authService.logout()
-        navigateToSignUp = true
+        navigateToLogin = true
     }
     
     private func deleteAccount() async {

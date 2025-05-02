@@ -6,58 +6,59 @@
 //
 
 import SwiftUI
+import FirebaseFirestore
 
 struct StaffAllView: View {
     @Environment(\.colorScheme) var colorScheme
+    @StateObject private var staffService = StaffService()
     
     var currentTheme: Theme {
         colorScheme == .dark ? Theme.dark : Theme.light
     }
     
-    @State private var staffMembers = [
-        StaffMember(name: "Dr. Johnson", specialty: "Cardiology", status: .available),
-        StaffMember(name: "Dr. Williams", specialty: "Neurology", status: .busy),
-        StaffMember(name: "Dr. Lee", specialty: "Pediatrics", status: .breaks),
-        StaffMember(name: "Dr. Garcia", specialty: "General", status: .offDuty),
-        StaffMember(name: "Dr. Singh", specialty: "Orthopedics", status: .available),
-        StaffMember(name: "Dr. Martinez", specialty: "Dermatology", status: .busy),
-        StaffMember(name: "Dr. Chen", specialty: "Ophthalmology", status: .breaks),
-        StaffMember(name: "Dr. Wilson", specialty: "Pulmonology", status: .available),
-        StaffMember(name: "Dr. Brown", specialty: "Gynecology", status: .offDuty),
-        StaffMember(name: "Dr. Taylor", specialty: "Psychiatry", status: .busy)
-    ]
-    
-    @State private var showingMessageSheet = false
     @State private var showingActionSheet = false
-    @State private var selectedStaff: StaffMember?
+    @State private var selectedStaff: Staff?
     
     var body: some View {
-        ScrollView {
-            LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible())
-            ], spacing: 16) {
-                ForEach(staffMembers) { staff in
-                    StaffDetailCard(
-                        staff: staff,
-                        onMessage: {
-                            selectedStaff = staff
-                            showingMessageSheet = true
-                        },
-                        onMoreOptions: {
-                            selectedStaff = staff
-                            showingActionSheet = true
+        VStack {
+            if staffService.staffMembers.isEmpty {
+                VStack(spacing: 20) {
+                    Spacer()
+                    Image(systemName: "person.2.slash")
+                        .font(.system(size: 50))
+                        .foregroundColor(.gray)
+                    Text("No Staff Members")
+                        .font(.headline)
+                        .foregroundColor(.gray)
+                    Text("Add staff members to get started")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                    Spacer()
+                }
+                .padding()
+            } else {
+                ScrollView {
+                    LazyVGrid(columns: [
+                        GridItem(.flexible()),
+                        GridItem(.flexible())
+                    ], spacing: 16) {
+                        ForEach(staffService.staffMembers) { staff in
+                            StaffDetailCard(
+                                staff: staff,
+                                onMoreOptions: {
+                                    selectedStaff = staff
+                                    showingActionSheet = true
+                                }
+                            )
                         }
-                    )
+                    }
+                    .padding()
                 }
             }
-            .padding()
         }
         .navigationTitle("All Staff")
-        .sheet(isPresented: $showingMessageSheet) {
-            if let staff = selectedStaff {
-                MessageView(recipient: staff)
-            }
+        .onAppear {
+            staffService.fetchStaff()
         }
         .actionSheet(isPresented: $showingActionSheet) {
             ActionSheet(
@@ -85,8 +86,7 @@ struct StaffAllView: View {
 }
 
 struct StaffDetailCard: View {
-    let staff: StaffMember
-    let onMessage: () -> Void
+    let staff: Staff
     let onMoreOptions: () -> Void
     @Environment(\.colorScheme) var colorScheme
     
@@ -98,10 +98,10 @@ struct StaffDetailCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Circle()
-                    .fill(staff.status.color)
+                    .fill(staff.status?.color ?? .green)
                     .frame(width: 12, height: 12)
                 
-                Text(staff.status.rawValue)
+                Text(staff.status?.rawValue ?? "Available")
                     .font(.caption)
                     .foregroundColor(currentTheme.text.opacity(0.6))
                 
@@ -112,21 +112,11 @@ struct StaffDetailCard: View {
                 .font(.headline)
                 .foregroundColor(currentTheme.text)
             
-            Text(staff.specialty)
+            Text(staff.staffRole ?? "Staff")
                 .font(.caption)
                 .foregroundColor(currentTheme.text.opacity(0.6))
             
             HStack {
-                Button(action: onMessage) {
-                    Label("Message", systemImage: "message.fill")
-                        .font(.caption)
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 12)
-                        .background(currentTheme.primary.opacity(0.1))
-                        .foregroundColor(currentTheme.primary)
-                        .cornerRadius(8)
-                }
-                
                 Spacer()
                 
                 Button(action: onMoreOptions) {
@@ -146,67 +136,5 @@ struct StaffDetailCard: View {
                 .stroke(currentTheme.border, lineWidth: 1)
         )
         .shadow(color: currentTheme.shadow, radius: 5, x: 0, y: 2)
-    }
-}
-
-struct MessageView: View {
-    let recipient: StaffMember
-    @State private var messageText = ""
-    @Environment(\.presentationMode) var presentationMode
-    @Environment(\.colorScheme) var colorScheme
-    
-    var currentTheme: Theme {
-        colorScheme == .dark ? Theme.dark : Theme.light
-    }
-    
-    var body: some View {
-        NavigationView {
-            VStack {
-                HStack {
-                    Text("To: ")
-                        .foregroundColor(currentTheme.text.opacity(0.6))
-                    Text(recipient.name)
-                        .bold()
-                        .foregroundColor(currentTheme.text)
-                    Spacer()
-                }
-                .padding()
-                
-                Divider()
-                
-                TextEditor(text: $messageText)
-                    .padding()
-                    .background(currentTheme.secondary.opacity(0.3))
-                    .cornerRadius(8)
-                    .padding()
-                    .foregroundColor(currentTheme.text)
-                
-                Button(action: {
-                    // Here you'd integrate with your message sending functionality
-                    // For now, we'll just dismiss the sheet
-                    presentationMode.wrappedValue.dismiss()
-                }) {
-                    Text("Send Message")
-                        .foregroundColor(.white)
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(currentTheme.primary)
-                        .cornerRadius(8)
-                        .padding(.horizontal)
-                }
-                .padding(.bottom)
-            }
-            .navigationTitle("New Message")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        presentationMode.wrappedValue.dismiss()
-                    }
-                    .foregroundColor(currentTheme.primary)
-                }
-            }
-            .background(currentTheme.background)
-        }
     }
 }

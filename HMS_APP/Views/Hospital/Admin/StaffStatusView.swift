@@ -9,21 +9,14 @@ import SwiftUI
 
 struct StaffStatusView: View {
     @Environment(\.colorScheme) var colorScheme
+    @StateObject private var staffService = StaffService()
     
     var currentTheme: Theme {
         colorScheme == .dark ? Theme.dark : Theme.light
     }
     
-    let staffStatusData = [
-        StaffMember(name: "Dr. Johnson", specialty: "Cardiology", status: .available),
-        StaffMember(name: "Dr. Williams", specialty: "Neurology", status: .busy),
-        StaffMember(name: "Dr. Lee", specialty: "Pediatrics", status: .breaks),
-        StaffMember(name: "Dr. Garcia", specialty: "General", status: .offDuty)
-    ]
-    
-    @State private var showingMessageSheet = false
     @State private var showingActionSheet = false
-    @State private var selectedStaff: StaffMember?
+    @State private var selectedStaff: Staff?
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -41,28 +34,36 @@ struct StaffStatusView: View {
                 }
             }
             
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(staffStatusData) { staff in
-                        StaffStatusCard(
-                            staff: staff,
-                            onMessage: {
-                                selectedStaff = staff
-                                showingMessageSheet = true
-                            },
-                            onMoreOptions: {
-                                selectedStaff = staff
-                                showingActionSheet = true
-                            }
-                        )
+            if staffService.staffMembers.isEmpty {
+                VStack(spacing: 20) {
+                    Spacer()
+                    Image(systemName: "person.2.slash")
+                        .font(.system(size: 50))
+                        .foregroundColor(.gray)
+                    Text("No Staff Members")
+                        .font(.headline)
+                        .foregroundColor(.gray)
+                    Spacer()
+                }
+                .padding()
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(staffService.staffMembers) { staff in
+                            StaffStatusCard(
+                                staff: staff,
+                                onMoreOptions: {
+                                    selectedStaff = staff
+                                    showingActionSheet = true
+                                }
+                            )
+                        }
                     }
                 }
             }
         }
-        .sheet(isPresented: $showingMessageSheet) {
-            if let staff = selectedStaff {
-                MessageView(recipient: staff)
-            }
+        .onAppear {
+            staffService.fetchStaff()
         }
         .actionSheet(isPresented: $showingActionSheet) {
             ActionSheet(
@@ -89,8 +90,7 @@ struct StaffStatusView: View {
 }
 
 struct StaffStatusCard: View {
-    let staff: StaffMember
-    let onMessage: () -> Void
+    let staff: Staff
     let onMoreOptions: () -> Void
     @Environment(\.colorScheme) var colorScheme
     
@@ -102,10 +102,10 @@ struct StaffStatusCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Circle()
-                    .fill(staff.status.color)
+                    .fill(staff.status?.color ?? .green)
                     .frame(width: 12, height: 12)
                 
-                Text(staff.status.rawValue)
+                Text(staff.status?.rawValue ?? "Available")
                     .font(.caption)
                     .foregroundColor(currentTheme.text.opacity(0.6))
             }
@@ -114,21 +114,11 @@ struct StaffStatusCard: View {
                 .font(.headline)
                 .foregroundColor(currentTheme.text)
             
-            Text(staff.specialty)
+            Text(staff.staffRole ?? "Staff")
                 .font(.caption)
                 .foregroundColor(currentTheme.text.opacity(0.6))
             
             HStack {
-                Button(action: onMessage) {
-                    Label("Message", systemImage: "message.fill")
-                        .font(.caption)
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 12)
-                        .background(currentTheme.primary.opacity(0.1))
-                        .foregroundColor(currentTheme.primary)
-                        .cornerRadius(8)
-                }
-                
                 Spacer()
                 
                 Button(action: onMoreOptions) {
@@ -148,28 +138,5 @@ struct StaffStatusCard: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(currentTheme.border, lineWidth: 1)
         )
-    }
-}
-
-struct StaffMember: Identifiable {
-    let id = UUID()
-    let name: String
-    let specialty: String
-    let status: StaffStatus
-}
-
-enum StaffStatus: String {
-    case available = "Available"
-    case busy = "Busy"
-    case breaks = "On Break"
-    case offDuty = "Off Duty"
-    
-    var color: Color {
-        switch self {
-        case .available: return .green
-        case .busy: return .orange
-        case .breaks: return .blue
-        case .offDuty: return .gray
-        }
     }
 }
