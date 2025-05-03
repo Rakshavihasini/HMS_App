@@ -28,6 +28,9 @@ struct BookAppointmentView: View {
     @State private var availableTimeSlots: [String] = []
     @State private var selectedTime = "09:00 AM"
     
+    // Default appointment duration in minutes
+    private let appointmentDuration = 30
+    
     private let db = Firestore.firestore()
     private let dbName = "hms4"
     
@@ -183,24 +186,37 @@ struct BookAppointmentView: View {
         
         isLoading = true
         
-        // Format date as string for storage
+        // Get patient name from UserDefaults or use a default
+        let patientName = UserDefaults.standard.string(forKey: "userName") ?? "Patient"
+        
+        // Format date as string for storage (for backward compatibility)
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
         let dateString = dateFormatter.string(from: selectedDate)
         
+        // Create a combined date and time for appointmentDateTime
+        let timeFormatter = DateFormatter()
+        timeFormatter.dateFormat = "yyyy-MM-dd h:mm a"
+        let combinedDateTimeString = "\(dateString) \(selectedTime)"
+        let appointmentDateTime = timeFormatter.date(from: combinedDateTimeString)
+        
         // Create a unique appointment ID
         let appointmentId = UUID().uuidString
         
-        // Create appointment data
+        // Create appointment data using the Appointment model structure
         let appointmentData: [String: Any] = [
             "id": appointmentId,
-            "patientId": patientId,
-            "doctorId": doctorId,
-            "doctorName": doctor.name,
-            "date": dateString,
-            "time": selectedTime,
-            "reason": reason,
-            "status": "Scheduled",
+            "patId": patientId,
+            "patName": patientName,
+            "docId": doctorId,
+            "docName": doctor.name,
+            "patientRecordsId": patientId, // Using patientId as patientRecordsId for now
+            "date": dateString, // For backward compatibility
+            "time": selectedTime, // For backward compatibility
+            "appointmentDateTime": appointmentDateTime as Any,
+            "status": Appointment.AppointmentStatus.scheduled.rawValue,
+            "durationMinutes": appointmentDuration,
+            "notes": reason,
             "createdAt": FieldValue.serverTimestamp(),
             "database": dbName
         ]
@@ -247,4 +263,4 @@ struct DoctorInfoHeader: View {
         }
         .padding(.vertical, 8)
     }
-} 
+}
