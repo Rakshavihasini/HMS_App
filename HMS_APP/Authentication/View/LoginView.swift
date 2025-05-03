@@ -132,7 +132,6 @@ struct LoginScreen: View {
         .navigationDestination(isPresented: $navigateToDashboard) {
             getDashboardView()
         }
-        .navigationBarBackButtonHidden()
     }
 
     private func validateEmail(_ email: String) {

@@ -151,7 +151,7 @@ struct DashboardContent: View {
                 // NavigationDestination for Consultation Detail
                 .navigationDestination(isPresented: $showingConsultationDetail) {
                      if let appointment = selectedAppointmentForDetail {
-                         DoctorConsultationDetailView(appointment: appointment)
+                         ConsultationNotesView(appointmentId: appointment.id)
                      } else {
                          Text("Error: No appointment selected.")
                      }

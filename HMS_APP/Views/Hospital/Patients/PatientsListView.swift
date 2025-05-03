@@ -52,6 +52,7 @@ struct PatientsListView: View {
                 }
             }
         }
+        .navigationBarBackButtonHidden()
         .navigationDestination(isPresented: $showPatientDetail) {
             if let patient = selectedPatient {
                 PatientDetailView(patient: patient)
