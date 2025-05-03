@@ -166,7 +166,6 @@ struct SignUpScreen: View {
             TwoFAView(isLoginFlow: false, email: email, userType: userType)
                 .environmentObject(authManager)
         }
-        .navigationBarBackButtonHidden()
     }
 
     // MARK: - Validation Methods
