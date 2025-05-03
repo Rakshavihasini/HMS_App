@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import Firebase
+import FirebaseFirestore
 
 // Appointment model
 struct Appointment1: Identifiable {
@@ -27,12 +29,8 @@ struct PatientDetailView: View {
     let paid: String = "2400"
     let pending: String = "2400"
     
-    // Mock appointments data
-    @State private var appointments: [Appointment1] = [
-        Appointment1(type: "General Checkup", date: "08-09-2023", time: "10:30 AM", status: "Completed", progress: 1.0),
-        Appointment1(type: "Dental Cleaning", date: "15-10-2023", time: "02:15 PM", status: "Completed", progress: 1.0),
-        Appointment1(type: "Annual Physical", date: "22-11-2023", time: "09:00 AM", status: "Completed", progress: 1.0)
-    ]
+    // Use AppointmentManager for appointments
+    @StateObject private var appointmentManager = AppointmentManager()
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -231,20 +229,40 @@ struct PatientDetailView: View {
                 .padding(.bottom, 16)
                 
                 // Content area
-                ScrollView {
-                    VStack(spacing: 16) {
-                        ForEach(appointments) { appointment in
-                            FinalAppointmentCard(appointment: appointment, colorScheme: colorScheme)
-                                .padding(.horizontal, 20)
+                if appointmentManager.isLoading {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                        .scaleEffect(1.5)
+                } else if let error = appointmentManager.error {
+                    Text(error)
+                        .foregroundColor(.red)
+                } else {
+                    ScrollView {
+                        VStack(spacing: 16) {
+                            if appointmentManager.patientAppointments.isEmpty {
+                                Text("No appointments found")
+                                    .foregroundColor(.gray)
+                            } else {
+                                ForEach(appointmentManager.patientAppointments) { appointment in
+                                    AppointmentCardView(appointment: appointment, colorScheme: colorScheme)
+                                        .padding(.horizontal, 20)
+                                }
+                            }
                         }
+                        .padding(.vertical, 12)
+                        .padding(.bottom, 20)
                     }
-                    .padding(.vertical, 12)
-                    .padding(.bottom, 20)
+                    .background(colorScheme == .dark ? Color(UIColor.systemGray6) : Color(UIColor.systemBackground))
                 }
-                .background(colorScheme == .dark ? Color(UIColor.systemGray6) : Color(UIColor.systemBackground))
             }
             .safeAreaInset(edge: .top) {
                 Color.clear.frame(height: 0)
+            }
+            .onAppear {
+                // Trigger appointment fetch for the specific patient
+                Task {
+                    await appointmentManager.fetchAppointments(for: patient.id)
+                }
             }
         }
         .navigationBarHidden(true)
@@ -252,8 +270,8 @@ struct PatientDetailView: View {
 }
 
 // Appointment card view
-struct FinalAppointmentCard: View {
-    let appointment: Appointment1
+struct AppointmentCardView: View {
+    let appointment: Appointment
     let colorScheme: ColorScheme
     
     var body: some View {
@@ -272,7 +290,7 @@ struct FinalAppointmentCard: View {
                     )
                     .frame(width: 56, height: 56)
                 
-                Image(systemName: getIconName(for: appointment.type))
+                Image(systemName: getIconName(for: appointment.notes ?? ""))
                     .resizable()
                     .scaledToFit()
                     .foregroundColor(.blue)
@@ -281,7 +299,7 @@ struct FinalAppointmentCard: View {
             .shadow(color: Color.black.opacity(0.05), radius: 3, x: 0, y: 2)
             
             VStack(alignment: .leading, spacing: 6) {
-                Text(appointment.type)
+                Text(appointment.doctorName)
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundColor(colorScheme == .dark ? .white : .primary)
                 
@@ -291,7 +309,7 @@ struct FinalAppointmentCard: View {
                             .font(.system(size: 12))
                             .foregroundColor(colorScheme == .dark ? .gray : Color(.systemGray))
                         
-                        Text(appointment.date)
+                        Text(formatDate(appointment.appointmentDateTime))
                             .font(.system(size: 14))
                             .foregroundColor(colorScheme == .dark ? .gray : Color(.systemGray))
                     }
@@ -301,7 +319,7 @@ struct FinalAppointmentCard: View {
                             .font(.system(size: 12))
                             .foregroundColor(colorScheme == .dark ? .gray : Color(.systemGray))
                         
-                        Text(appointment.time)
+                        Text(formatTime(appointment.appointmentDateTime))
                             .font(.system(size: 14))
                             .foregroundColor(colorScheme == .dark ? .gray : Color(.systemGray))
                     }
@@ -315,7 +333,7 @@ struct FinalAppointmentCard: View {
                     .fill(statusColor(for: appointment.status))
                     .frame(width: 8, height: 8)
                 
-                Text(appointment.status)
+                Text(appointment.status?.rawValue ?? "Unknown")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(statusColor(for: appointment.status))
             }
@@ -335,31 +353,51 @@ struct FinalAppointmentCard: View {
         )
     }
     
-    func getIconName(for appointmentType: String) -> String {
-        switch appointmentType.lowercased() {
-        case let type where type.contains("dental"):
-            return "tooth"
-        case let type where type.contains("physical"):
-            return "heart.text.square"
-        case let type where type.contains("checkup"):
+    // Helper functions
+    private func formatDate(_ date: Date?) -> String {
+        guard let date = date else { return "N/A" }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: date)
+    }
+    
+    private func formatTime(_ date: Date?) -> String {
+        guard let date = date else { return "N/A" }
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+    
+    private func getIconName(for reason: String) -> String {
+        let lowercaseReason = reason.lowercased()
+        switch lowercaseReason {
+        case let r where r.contains("checkup"):
             return "stethoscope"
+        case let r where r.contains("dental"):
+            return "tooth"
+        case let r where r.contains("physical"):
+            return "heart.text.square"
         default:
             return "cross.case"
         }
     }
     
-    func statusColor(for status: String) -> Color {
-        switch status.lowercased() {
-        case "completed":
+    private func statusColor(for status: Appointment.AppointmentStatus?) -> Color {
+        switch status {
+        case .completed:
             return Color.green
-        case "scheduled":
+        case .scheduled:
             return Color.blue
-        case "cancelled":
+        case .cancelled:
             return Color.red
-        default:
+        case .inProgress:
+            return Color.orange
+        case .noShow:
+            return Color.gray
+        case .rescheduled:
+            return Color.purple
+        case .none:
             return Color.gray
         }
     }
 }
-
-// Preview provider
