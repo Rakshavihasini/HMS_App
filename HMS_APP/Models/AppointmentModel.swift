@@ -6,9 +6,11 @@
 //
 
 import Foundation
+import FirebaseFirestore
+
 
 /// A model representing a medical appointment in the healthcare system
-struct Appointment: Identifiable, Codable {
+struct AppointmentData: Identifiable, Codable {
     /// The unique identifier for the appointment
     let id: String
     
@@ -38,6 +40,28 @@ struct Appointment: Identifiable, Codable {
     
     /// Any notes for the appointment
     let notes: String?
+    
+    let date: String?
+    
+    let reason: String?
+    
+    var time: String {
+        if let dateTime = appointmentDateTime {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "h:mm a"
+            return formatter.string(from: dateTime)
+        }
+        return ""
+    }
+    
+    var dateObject: Date? {
+        if let dateStr = date {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            return formatter.date(from: dateStr)
+        }
+        return appointmentDateTime
+    }
     
     /// Enum representing possible appointment statuses
     enum AppointmentStatus: String, Codable {
@@ -71,7 +95,9 @@ struct Appointment: Identifiable, Codable {
         appointmentDateTime: Date? = nil,
         status: AppointmentStatus? = nil,
         durationMinutes: Int? = nil,
-        notes: String? = nil
+        notes: String? = nil,
+        date: String? = nil,
+        reason: String? = nil
     ) {
         self.id = id
         self.patientId = patientId
@@ -83,6 +109,8 @@ struct Appointment: Identifiable, Codable {
         self.status = status
         self.durationMinutes = durationMinutes
         self.notes = notes
+        self.date = date
+        self.reason = reason
     }
     
     // MARK: - Codable
@@ -98,6 +126,8 @@ struct Appointment: Identifiable, Codable {
         case status
         case durationMinutes
         case notes
+        case date
+        case reason
     }
     
     // MARK: - Additional functionality
@@ -154,16 +184,16 @@ struct Appointment: Identifiable, Codable {
     }
 }
 
-// MARK: - Extensions for Appointment
+// MARK: - Extensions for AppointmentData
 
-extension Appointment {
+extension AppointmentData {
     /// Creates a sample appointment for preview and testing purposes
-    static var sample: Appointment {
+    static var sample: AppointmentData {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd HH:mm"
         let appointmentTime = dateFormatter.date(from: "2025-05-15 14:30")
         
-        return Appointment(
+        return AppointmentData(
             id: "apt456",
             patientId: "pat123",
             patientName: "Jane Doe",
@@ -173,7 +203,262 @@ extension Appointment {
             appointmentDateTime: appointmentTime,
             status: .scheduled,
             durationMinutes: 30,
-            notes: "Follow-up appointment for medication review"
+            notes: "Follow-up appointment for medication review",
+            date: dateFormatter.string(from: appointmentTime!),
+            reason: "Checkup"
         )
+    }
+}
+
+// MARK: - Appointment ViewModel
+
+// Appointment class that conforms to ObservableObject to be used as a StateObject
+class Appointment: ObservableObject {
+    @Published var upcomingAppointments: [AppointmentData] = []
+    @Published var pastAppointments: [AppointmentData] = []
+    @Published var isLoading: Bool = false
+    @Published var error: String? = nil
+    
+    private let db = Firestore.firestore()
+    private let dbName = "hms4"
+    
+    init() {}
+    
+    init(from: AppointmentData) {
+        // This initializer is for creating an Appointment object from AppointmentData
+        // Will be implemented as needed
+    }
+    
+    @MainActor
+    func fetchAppointments(for doctorId: String) async {
+        isLoading = true
+        error = nil
+        
+        do {
+            let query = db.collection("\(dbName)_appointments").whereField("docId", isEqualTo: doctorId)
+            let snapshot = try await query.getDocuments()
+            
+            var upcoming: [AppointmentData] = []
+            var past: [AppointmentData] = []
+            
+            for document in snapshot.documents {
+                if let appointment = parseAppointment(document: document) {
+                    if appointment.isUpcoming {
+                        upcoming.append(appointment)
+                    } else {
+                        past.append(appointment)
+                    }
+                }
+            }
+            
+            // Sort upcoming appointments by date (earliest first)
+            upcoming.sort { (a, b) -> Bool in
+                guard let dateA = a.appointmentDateTime, let dateB = b.appointmentDateTime else {
+                    return false
+                }
+                return dateA < dateB
+            }
+            
+            // Sort past appointments by date (most recent first)
+            past.sort { (a, b) -> Bool in
+                guard let dateA = a.appointmentDateTime, let dateB = b.appointmentDateTime else {
+                    return false
+                }
+                return dateA > dateB
+            }
+            
+            self.upcomingAppointments = upcoming
+            self.pastAppointments = past
+            self.isLoading = false
+        } catch {
+            self.isLoading = false
+            self.error = "Error fetching appointments: \(error.localizedDescription)"
+        }
+    }
+    
+    private func parseAppointment(document: QueryDocumentSnapshot) -> AppointmentData? {
+        let data = document.data()
+        
+        // Parse date and time
+        var appointmentDateTime: Date? = nil
+        if let timestamp = data["appointmentDateTime"] as? Timestamp {
+            appointmentDateTime = timestamp.dateValue()
+        }
+        
+        // Parse status
+        var status: AppointmentData.AppointmentStatus? = nil
+        if let statusString = data["status"] as? String,
+           let appointmentStatus = AppointmentData.AppointmentStatus(rawValue: statusString) {
+            status = appointmentStatus
+        }
+        
+        return AppointmentData(
+            id: document.documentID,
+            patientId: data["patId"] as? String ?? "",
+            patientName: data["patName"] as? String ?? "",
+            doctorId: data["docId"] as? String ?? "",
+            doctorName: data["docName"] as? String ?? "",
+            patientRecordsId: data["patientRecordsId"] as? String ?? "",
+            appointmentDateTime: appointmentDateTime,
+            status: status,
+            durationMinutes: data["durationMinutes"] as? Int,
+            notes: data["notes"] as? String,
+            date: data["date"] as? String,
+            reason: data["reason"] as? String
+        )
+    }
+    
+    // Function to update appointment status
+    @MainActor
+    func updateAppointmentStatus(appointmentId: String, newStatus: AppointmentData.AppointmentStatus) async -> Bool {
+        do {
+            try await db.collection("\(dbName)_appointments").document(appointmentId).updateData([
+                "status": newStatus.rawValue
+            ])
+            
+            // Update local data
+            if let index = upcomingAppointments.firstIndex(where: { $0.id == appointmentId }) {
+                // Create a copy of the appointment with updated status
+                let oldAppointment = upcomingAppointments[index]
+                let updatedAppointment = AppointmentData(
+                    id: oldAppointment.id,
+                    patientId: oldAppointment.patientId,
+                    patientName: oldAppointment.patientName,
+                    doctorId: oldAppointment.doctorId,
+                    doctorName: oldAppointment.doctorName,
+                    patientRecordsId: oldAppointment.patientRecordsId,
+                    appointmentDateTime: oldAppointment.appointmentDateTime,
+                    status: newStatus,
+                    durationMinutes: oldAppointment.durationMinutes,
+                    notes: oldAppointment.notes,
+                    date: oldAppointment.date,
+                    reason: oldAppointment.reason
+                )
+                
+                // Depending on the new status, move the appointment between lists
+                if newStatus == .completed || newStatus == .cancelled || newStatus == .noShow {
+                    upcomingAppointments.remove(at: index)
+                    pastAppointments.insert(updatedAppointment, at: 0)
+                } else {
+                    upcomingAppointments[index] = updatedAppointment
+                }
+            } else if let index = pastAppointments.firstIndex(where: { $0.id == appointmentId }) {
+                // Similar logic for past appointments
+                let oldAppointment = pastAppointments[index]
+                let updatedAppointment = AppointmentData(
+                    id: oldAppointment.id,
+                    patientId: oldAppointment.patientId,
+                    patientName: oldAppointment.patientName,
+                    doctorId: oldAppointment.doctorId,
+                    doctorName: oldAppointment.doctorName,
+                    patientRecordsId: oldAppointment.patientRecordsId,
+                    appointmentDateTime: oldAppointment.appointmentDateTime,
+                    status: newStatus,
+                    durationMinutes: oldAppointment.durationMinutes,
+                    notes: oldAppointment.notes,
+                    date: oldAppointment.date,
+                    reason: oldAppointment.reason
+                )
+                
+                // If status changes to scheduled or rescheduled, move to upcoming
+                if newStatus == .scheduled || newStatus == .rescheduled {
+                    pastAppointments.remove(at: index)
+                    upcomingAppointments.append(updatedAppointment)
+                    // Sort upcoming appointments
+                    upcomingAppointments.sort { (a, b) -> Bool in
+                        guard let dateA = a.appointmentDateTime, let dateB = b.appointmentDateTime else {
+                            return false
+                        }
+                        return dateA < dateB
+                    }
+                } else {
+                    pastAppointments[index] = updatedAppointment
+                }
+            }
+            
+            return true
+        } catch {
+            self.error = "Error updating appointment status: \(error.localizedDescription)"
+            return false
+        }
+    }
+    
+    // Function to reschedule an appointment
+    @MainActor
+    func rescheduleAppointment(appointmentId: String, newDate: Date) async -> Bool {
+        do {
+            // Format the date string
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            let dateString = dateFormatter.string(from: newDate)
+            
+            // Format the time string
+            dateFormatter.dateFormat = "h:mm a"
+            let timeString = dateFormatter.string(from: newDate)
+            
+            try await db.collection("\(dbName)_appointments").document(appointmentId).updateData([
+                "appointmentDateTime": newDate,
+                "date": dateString,
+                "time": timeString,
+                "status": AppointmentData.AppointmentStatus.rescheduled.rawValue
+            ])
+            
+            // Update local data
+            let updateLocalAppointment = { (oldAppointment: AppointmentData) -> AppointmentData in
+                return AppointmentData(
+                    id: oldAppointment.id,
+                    patientId: oldAppointment.patientId,
+                    patientName: oldAppointment.patientName,
+                    doctorId: oldAppointment.doctorId,
+                    doctorName: oldAppointment.doctorName,
+                    patientRecordsId: oldAppointment.patientRecordsId,
+                    appointmentDateTime: newDate,
+                    status: .rescheduled,
+                    durationMinutes: oldAppointment.durationMinutes,
+                    notes: oldAppointment.notes,
+                    date: dateString,
+                    reason: oldAppointment.reason
+                )
+            }
+            
+            if let index = upcomingAppointments.firstIndex(where: { $0.id == appointmentId }) {
+                let oldAppointment = upcomingAppointments[index]
+                let updatedAppointment = updateLocalAppointment(oldAppointment)
+                upcomingAppointments[index] = updatedAppointment
+                
+                // Re-sort the upcoming appointments
+                upcomingAppointments.sort { (a, b) -> Bool in
+                    guard let dateA = a.appointmentDateTime, let dateB = b.appointmentDateTime else {
+                        return false
+                    }
+                    return dateA < dateB
+                }
+            } else if let index = pastAppointments.firstIndex(where: { $0.id == appointmentId }) {
+                let oldAppointment = pastAppointments[index]
+                let updatedAppointment = updateLocalAppointment(oldAppointment)
+                
+                // Remove from past and add to upcoming
+                pastAppointments.remove(at: index)
+                upcomingAppointments.append(updatedAppointment)
+                
+                // Re-sort the upcoming appointments
+                upcomingAppointments.sort { (a, b) -> Bool in
+                    guard let dateA = a.appointmentDateTime, let dateB = b.appointmentDateTime else {
+                        return false
+                    }
+                    return dateA < dateB
+                }
+            }
+            
+            return true
+        } catch {
+            self.error = "Error rescheduling appointment: \(error.localizedDescription)"
+            return false
+        }
+    }
+    
+    // Static function to provide sample appointments for preview and testing
+    static func sampleAppointments() -> [AppointmentData] {
+        return [AppointmentData.sample]
     }
 }

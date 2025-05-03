@@ -6,7 +6,7 @@
 //
 import SwiftUI
 
-struct InfoRow: View {
+struct StaffInfoRow: View {
     let icon: String
     let label: String
     let value: String

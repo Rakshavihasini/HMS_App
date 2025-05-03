@@ -3,12 +3,12 @@ import FirebaseFirestore
 
 // MARK: - Shared Appointment Views
 struct AppointmentDetailView: View {
-    let appointment: Appointment
+    let appointment: AppointmentData
     @Binding var showRescheduleModal: Bool
     let onCancel: () -> Void
     @Environment(\.presentationMode) var presentationMode
     
-    init(appointment: Appointment, showRescheduleModal: Binding<Bool>, onCancel: @escaping () -> Void) {
+    init(appointment: AppointmentData, showRescheduleModal: Binding<Bool>, onCancel: @escaping () -> Void) {
         self.appointment = appointment
         self._showRescheduleModal = showRescheduleModal
         self.onCancel = onCancel
@@ -164,7 +164,7 @@ struct AppointmentDetailView: View {
 }
 
 struct AppointmentRescheduleView: View {
-    let appointment: Appointment
+    let appointment: AppointmentData
     @Environment(\.presentationMode) var presentationMode
     @State private var selectedDate = Date()
     @State private var selectedTime = "09:00 AM"

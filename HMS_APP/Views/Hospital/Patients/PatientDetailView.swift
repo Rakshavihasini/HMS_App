@@ -271,7 +271,7 @@ struct PatientDetailView: View {
 
 // Appointment card view
 struct AppointmentCardView: View {
-    let appointment: Appointment
+    let appointment: AppointmentData
     let colorScheme: ColorScheme
     
     var body: some View {
@@ -382,7 +382,7 @@ struct AppointmentCardView: View {
         }
     }
     
-    private func statusColor(for status: Appointment.AppointmentStatus?) -> Color {
+    private func statusColor(for status: AppointmentData.AppointmentStatus?) -> Color {
         switch status {
         case .completed:
             return Color.green

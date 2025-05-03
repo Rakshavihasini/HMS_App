@@ -218,7 +218,7 @@ struct BookAppointmentView: View {
             "date": dateString,
             "time": selectedTime,
             "appointmentDateTime": appointmentDateTime as Any,
-            "status": Appointment.AppointmentStatus.scheduled.rawValue,
+            "status": AppointmentData.AppointmentStatus.scheduled.rawValue,
             "durationMinutes": appointmentDuration,
             "reason": reason,
             "createdAt": FieldValue.serverTimestamp(),

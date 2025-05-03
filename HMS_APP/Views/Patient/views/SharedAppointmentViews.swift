@@ -2,7 +2,7 @@ import SwiftUI
 
 // Helper view to display appointment details in sheet
 struct AppointmentSheetContents: View {
-    let appointment: Appointment
+    let appointment: AppointmentData
     @Binding var showRescheduleModal: Bool
     @ObservedObject var appointmentManager: AppointmentManager
     let onDismiss: () -> Void

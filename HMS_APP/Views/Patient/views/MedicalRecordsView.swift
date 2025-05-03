@@ -14,16 +14,16 @@ struct MedicalRecordsView: View {
     @StateObject var symptomCheckerViewModel = SymptomCheckerViewModel()
     @State private var patient: Patient?
     @State private var isLoading = true
-    @State private var selectedAppointment: Appointment? = nil
+    @State private var selectedAppointment: AppointmentData? = nil
     @State private var showRescheduleModal = false
 
-    var currentAppointments: [Appointment] {
+    var currentAppointments: [AppointmentData] {
         appointmentManager.patientAppointments.filter {
             $0.status == .scheduled || $0.status == .inProgress || $0.status == .rescheduled
         }
     }
     
-    var pastAppointments: [Appointment] {
+    var pastAppointments: [AppointmentData] {
         appointmentManager.patientAppointments.filter {
             $0.status == .completed || $0.status == .cancelled || $0.status == .noShow
         }
@@ -142,7 +142,7 @@ struct MedicalRecordsView: View {
 }
 
 struct AppointmentRow: View {
-    let appointment: Appointment
+    let appointment: AppointmentData
     
     var statusColor: Color {
         guard let status = appointment.status else {

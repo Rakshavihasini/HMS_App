@@ -7,7 +7,7 @@
 import SwiftUI
 
 struct AppointmentCard: View {
-    let appointment: Appointment
+    let appointment: AppointmentData
     
     var statusColor: Color {
         guard let status = appointment.status else {
