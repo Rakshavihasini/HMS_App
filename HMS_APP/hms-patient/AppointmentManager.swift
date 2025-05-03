@@ -16,12 +16,7 @@ class AppointmentManager: ObservableObject {
     private let db = Firestore.firestore()
     private let dbName = "hms4"
     
-    var patientAppointments: [Appointment] {
-        guard let userId = UserDefaults.standard.string(forKey: "userId") else {
-            return []
-        }
-        return allAppointments.filter { $0.patientId == userId }
-    }
+    var patientAppointments: [Appointment] = []
     
     init() {
         // Initial fetch when class is initialized
@@ -40,6 +35,13 @@ class AppointmentManager: ObservableObject {
             print("DEBUG: No userId found in UserDefaults")
             return
         }
+        
+        await fetchAppointments(for: patientId)
+    }
+    
+    @MainActor
+    func fetchAppointments(for patientId: String) async {
+        isLoading = true
         
         print("DEBUG: Fetching appointments for patient ID: \(patientId)")
         
@@ -132,7 +134,7 @@ class AppointmentManager: ObservableObject {
                 return date1 > date2
             }
             
-            self.allAppointments = appointments
+            self.patientAppointments = appointments
             print("DEBUG: Total appointments after sorting: \(appointments.count)")
             
             self.isLoading = false

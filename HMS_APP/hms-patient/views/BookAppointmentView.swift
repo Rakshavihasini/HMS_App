@@ -12,6 +12,7 @@ struct BookAppointmentView: View {
     @Environment(\.presentationMode) var presentationMode
     @EnvironmentObject var authManager: AuthManager
     let doctor: DoctorProfile
+    let patient: Patient
     @State private var selectedDate = Date()
     @State private var reason = ""
     @State private var showingConfirmation = false
@@ -176,8 +177,6 @@ struct BookAppointmentView: View {
     
     private func bookAppointment() {
         guard let doctorId = doctor.id,
-              let patientId = UserDefaults.standard.string(forKey: "userId"),
-              !patientId.isEmpty,
               !reason.isEmpty else {
             errorMessage = "Missing information. Please ensure all fields are filled."
             showingError = true
@@ -185,9 +184,6 @@ struct BookAppointmentView: View {
         }
         
         isLoading = true
-        
-        // Get patient name from UserDefaults or use a default
-        let patientName = UserDefaults.standard.string(forKey: "userName") ?? "Patient"
         
         // Format date as string for storage (for backward compatibility)
         let dateFormatter = DateFormatter()
@@ -203,27 +199,52 @@ struct BookAppointmentView: View {
         // Create a unique appointment ID
         let appointmentId = UUID().uuidString
         
+        // Get the patient ID from UserDefaults
+        guard let patientId = UserDefaults.standard.string(forKey: "patientId") else {
+            errorMessage = "Patient ID not found"
+            showingError = true
+            isLoading = false
+            return
+        }
+        
         // Create appointment data using the Appointment model structure
         let appointmentData: [String: Any] = [
             "id": appointmentId,
             "patId": patientId,
-            "patName": patientName,
+            "patName": patient.name,
             "docId": doctorId,
             "docName": doctor.name,
-            "patientRecordsId": patientId, // Using patientId as patientRecordsId for now
-            "date": dateString, // For backward compatibility
-            "time": selectedTime, // For backward compatibility
+            "patientRecordsId": patientId,
+            "date": dateString,
+            "time": selectedTime,
             "appointmentDateTime": appointmentDateTime as Any,
             "status": Appointment.AppointmentStatus.scheduled.rawValue,
             "durationMinutes": appointmentDuration,
-            "notes": reason,
+            "reason": reason,
             "createdAt": FieldValue.serverTimestamp(),
-            "database": dbName
+            "database": dbName,
+            "userType": UserDefaults.standard.string(forKey: "userType") ?? "patient"
         ]
         
         // Save to Firestore
         Task {
             do {
+                // First check if patient exists in Firestore
+                let patientDoc = try await db.collection("\(dbName)_patients").document(patientId).getDocument()
+                
+                if !patientDoc.exists {
+                    // Create patient document if it doesn't exist
+                    try await db.collection("\(dbName)_patients").document(patientId).setData([
+                        "id": patientId,
+                        "name": patient.name,
+                        "email": patient.email,
+                        "createdAt": FieldValue.serverTimestamp(),
+                        "database": dbName,
+                        "userType": "patient"
+                    ])
+                }
+                
+                // Now save the appointment
                 try await db.collection("\(dbName)_appointments").document(appointmentId).setData(appointmentData)
                 
                 await MainActor.run {

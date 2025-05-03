@@ -207,8 +207,18 @@ struct LoginScreen: View {
             let exists = !snapshot.documents.isEmpty
             print("- Query Result: \(exists)")
             if exists {
-                print("- Found Document ID: \(snapshot.documents[0].documentID)")
-                print("- Document Data: \(snapshot.documents[0].data())")
+                let document = snapshot.documents[0]
+                print("- Found Document ID: \(document.documentID)")
+                print("- Document Data: \(document.data())")
+                
+                // Store the document ID in UserDefaults - this is the actual patient ID
+                UserDefaults.standard.set(document.documentID, forKey: "patientId")
+                
+                // Also store the email and name if available
+                if let name = document.data()["name"] as? String {
+                    UserDefaults.standard.set(name, forKey: "userName")
+                }
+                UserDefaults.standard.set(normalizedEmail, forKey: "userEmail")
             }
             
             return exists

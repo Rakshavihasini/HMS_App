@@ -275,86 +275,178 @@ struct DoctorCard: View {
 struct DoctorDetailView: View {
     let doctor: DoctorProfile
     @State private var showingBookAppointment = false
-
+    @State private var currentPatient: Patient?
+    @State private var isLoading = false
+    @State private var errorMessage: String?
+    
+    private let db = Firestore.firestore()
+    private let dbName = "hms4"
+    
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
-                Image(systemName: "person.circle.fill")
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 120, height: 120)
-                    .foregroundColor(.medicareBlue)
-                    .clipShape(Circle())
-                    .shadow(radius: 5)
-
-                Text(doctor.name)
-                    .font(.title)
-                    .bold()
-                
-                Text(doctor.speciality)
-                    .font(.headline)
-                    .foregroundColor(.medicareBlue)
-
-                if let age = doctor.age {
-                    HStack(spacing: 10) {
-                        Label("Age: \(age)", systemImage: "person")
-                        if let gender = doctor.gender {
-                            Label(gender, systemImage: "figure.stand")
-                        }
-                    }
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
-                }
-
-                // License details if available
-                if let license = doctor.licenseDetails {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("License Information")
-                            .font(.headline)
-                            .padding(.bottom, 4)
-                        
-                        if let council = license.councilName {
-                            Text("Council: \(council)")
-                                .font(.subheadline)
-                        }
-                        
-                        if let regNum = license.registrationNumber {
-                            Text("Registration #: \(regNum)")
-                                .font(.subheadline)
-                        }
-                        
-                        if let year = license.yearOfRegistration {
-                            Text("Year of Registration: \(year)")
-                                .font(.subheadline)
-                        }
-                        
-                        if let status = license.verificationStatus {
-                            Text("Status: \(status)")
-                                .font(.subheadline)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            if isLoading {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle())
+                    .scaleEffect(1.5)
                     .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
-                }
+            } else {
+                VStack(spacing: 20) {
+                    Image(systemName: "person.circle.fill")
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 120, height: 120)
+                        .foregroundColor(.medicareBlue)
+                        .clipShape(Circle())
+                        .shadow(radius: 5)
 
-                Button("Book Appointment") {
-                    showingBookAppointment = true
+                    Text(doctor.name)
+                        .font(.title)
+                        .bold()
+                    
+                    Text(doctor.speciality)
+                        .font(.headline)
+                        .foregroundColor(.medicareBlue)
+
+                    if let age = doctor.age {
+                        HStack(spacing: 10) {
+                            Label("Age: \(age)", systemImage: "person")
+                            if let gender = doctor.gender {
+                                Label(gender, systemImage: "figure.stand")
+                            }
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                    }
+
+                    // License details if available
+                    if let license = doctor.licenseDetails {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("License Information")
+                                .font(.headline)
+                                .padding(.bottom, 4)
+                            
+                            if let council = license.councilName {
+                                Text("Council: \(council)")
+                                    .font(.subheadline)
+                            }
+                            
+                            if let regNum = license.registrationNumber {
+                                Text("Registration #: \(regNum)")
+                                    .font(.subheadline)
+                            }
+                            
+                            if let year = license.yearOfRegistration {
+                                Text("Year of Registration: \(year)")
+                                    .font(.subheadline)
+                            }
+                            
+                            if let status = license.verificationStatus {
+                                Text("Status: \(status)")
+                                    .font(.subheadline)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(12)
+                    }
+
+                    Button("Book Appointment") {
+                        fetchPatientAndBook()
+                    }
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.medicareBlue)
+                    .foregroundColor(.white)
+                    .cornerRadius(12)
+                    .padding(.horizontal)
                 }
-                .font(.headline)
-                .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color.medicareBlue)
-                .foregroundColor(.white)
-                .cornerRadius(12)
-                .padding(.horizontal)
             }
-            .padding()
         }
         .navigationTitle(doctor.name)
         .sheet(isPresented: $showingBookAppointment) {
-            BookAppointmentView(doctor: doctor)
+            if let patient = currentPatient {
+                BookAppointmentView(doctor: doctor, patient: patient)
+            }
+        }
+        .alert("Error", isPresented: .constant(errorMessage != nil)) {
+            Button("OK") {
+                errorMessage = nil
+            }
+        } message: {
+            if let error = errorMessage {
+                Text(error)
+            }
+        }
+    }
+    
+    private func fetchPatientAndBook() {
+        guard let userId = UserDefaults.standard.string(forKey: "userId") else {
+            errorMessage = "User not logged in"
+            return
+        }
+        
+        isLoading = true
+        
+        Task {
+            do {
+                let document = try await db.collection("\(dbName)_patients")
+                    .document(userId)
+                    .getDocument()
+                
+                if document.exists, let data = document.data() {
+                    // Create patient from Firestore data
+                    let dateOfBirth: Date? = (data["dob"] as? Timestamp)?.dateValue()
+                    
+                    let patient = Patient(
+                        id: userId,
+                        name: data["name"] as? String ?? "",
+                        number: data["number"] as? Int,
+                        email: data["email"] as? String ?? "",
+                        dateOfBirth: dateOfBirth,
+                        gender: data["gender"] as? String
+                    )
+                    
+                    await MainActor.run {
+                        self.currentPatient = patient
+                        self.isLoading = false
+                        self.showingBookAppointment = true
+                    }
+                } else {
+                    // If patient document doesn't exist, create one with basic info
+                    let patient = Patient(
+                        id: userId,
+                        name: UserDefaults.standard.string(forKey: "userName") ?? "",
+                        email: UserDefaults.standard.string(forKey: "userEmail") ?? "",
+                        dateOfBirth: nil,
+                        gender: nil
+                    )
+                    
+                    // Save new patient to Firestore
+                    try await db.collection("\(dbName)_patients")
+                        .document(userId)
+                        .setData([
+                            "id": patient.id,
+                            "name": patient.name,
+                            "email": patient.email,
+                            "createdAt": FieldValue.serverTimestamp(),
+                            "database": dbName
+                        ])
+                    
+                    await MainActor.run {
+                        self.currentPatient = patient
+                        self.isLoading = false
+                        self.showingBookAppointment = true
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    self.isLoading = false
+                    self.errorMessage = "Failed to fetch patient data: \(error.localizedDescription)"
+                }
+            }
         }
     }
 }
