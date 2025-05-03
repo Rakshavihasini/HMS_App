@@ -29,6 +29,24 @@ struct EditStaffView: View {
         self.onSave = onSave
     }
     
+    private func dateOfBirthRange() -> ClosedRange<Date> {
+        let calendar = Calendar.current
+        
+        var startComponents = DateComponents()
+        startComponents.year = 1965
+        startComponents.month = 1
+        startComponents.day = 1
+        let startDate = calendar.date(from: startComponents)!
+        
+        var endComponents = DateComponents()
+        endComponents.year = 2000
+        endComponents.month = 12
+        endComponents.day = 31
+        let endDate = calendar.date(from: endComponents)!
+        
+        return startDate...endDate
+    }
+    
     var body: some View {
         NavigationView {
             Form {
@@ -37,7 +55,10 @@ struct EditStaffView: View {
                     TextField("Email", text: $email)
                     TextField("Role", text: $role)
                     
-                    DatePicker("Date of Birth", selection: $dateOfBirth, displayedComponents: .date)
+                    DatePicker("Date of Birth", 
+                               selection: $dateOfBirth, 
+                               in: dateOfBirthRange(),
+                               displayedComponents: .date)
                     DatePicker("Date of Joining", selection: $joinDate, displayedComponents: .date)
                 }
                 

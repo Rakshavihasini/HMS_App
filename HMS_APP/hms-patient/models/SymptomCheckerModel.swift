@@ -147,7 +147,7 @@ class SymptomCheckerViewModel: ObservableObject {
         let prompt = """
         Based on the following symptoms: \(symptoms.joined(separator: ", "))
         Additional description: \(description ?? "None")
-        Generate up to 10 relevant medical assessment questions in JSON format.
+        Generate up to 5 relevant medical assessment questions in JSON format.
         Each question should have:
         - id: unique string
         - text: question text

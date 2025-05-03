@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftUI
 
 /// A model representing a staff member in the healthcare system
 struct Staff: Identifiable, Codable {
@@ -32,6 +33,9 @@ struct Staff: Identifiable, Codable {
     /// The role of the staff member in the organization
     let staffRole: String?
     
+    /// The current status of the staff member
+    let status: StaffStatus?
+    
     /// Creates a new Staff instance
     /// - Parameters:
     ///   - id: The unique identifier for the staff member
@@ -41,6 +45,7 @@ struct Staff: Identifiable, Codable {
     ///   - educationalQualification: The staff member's educational qualification (optional)
     ///   - certificates: The staff member's certificates or degrees (optional)
     ///   - staffRole: The role of the staff member in the organization (optional)
+    ///   - status: The current status of the staff member (optional)
     init(
         id: String,
         name: String,
@@ -49,7 +54,8 @@ struct Staff: Identifiable, Codable {
         joinDate: Date? = nil,
         educationalQualification: String? = nil,
         certificates: [String]? = nil,
-        staffRole: String? = nil
+        staffRole: String? = nil,
+        status: StaffStatus? = nil
     ) {
         self.id = id
         self.name = name
@@ -59,6 +65,7 @@ struct Staff: Identifiable, Codable {
         self.educationalQualification = educationalQualification
         self.certificates = certificates
         self.staffRole = staffRole
+        self.status = status
     }
     
     // MARK: - Codable
@@ -72,6 +79,7 @@ struct Staff: Identifiable, Codable {
         case educationalQualification
         case certificates
         case staffRole
+        case status
     }
     
     // MARK: - Additional functionality
@@ -128,6 +136,24 @@ struct Staff: Identifiable, Codable {
     }
 }
 
+/// Enum representing the status of a staff member
+enum StaffStatus: String, Codable {
+    case available = "Available"
+    case busy = "Busy"
+    case breaks = "On Break"
+    case offDuty = "Off Duty"
+    
+    /// Color representation of the staff status
+    var color: Color {
+        switch self {
+        case .available: return .green
+        case .busy: return .orange
+        case .breaks: return .blue
+        case .offDuty: return .red
+        }
+    }
+}
+
 // MARK: - Extensions for Staff
 
 extension Staff {
@@ -146,7 +172,8 @@ extension Staff {
             joinDate: joinDate,
             educationalQualification: "BSc Nursing",
             certificates: ["BLS Certification", "ACLS Certification"],
-            staffRole: "Head Nurse"
+            staffRole: "Head Nurse",
+            status: .available
         )
     }
 }
