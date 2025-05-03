@@ -200,7 +200,7 @@ struct BookAppointmentView: View {
         let appointmentId = UUID().uuidString
         
         // Get the patient ID from UserDefaults
-        guard let patientId = UserDefaults.standard.string(forKey: "patientId") else {
+        guard let patientId = UserDefaults.standard.string(forKey: "userId") else {
             errorMessage = "Patient ID not found"
             showingError = true
             isLoading = false
