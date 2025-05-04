@@ -44,21 +44,6 @@ struct DoctorsView: View {
         VStack(spacing: 16) {
             // Header & Search
             VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Button(action: {
-                        presentationMode.wrappedValue.dismiss()
-                    }) {
-                        HStack(spacing: 5) {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 16, weight: .semibold))
-                            Text("Back")
-                        }
-                        .foregroundColor(.medicareBlue)
-                    }
-                    
-                    Spacer()
-                }
-                .padding(.horizontal)
                 
                 Text("Find Your Specialist")
                     .font(.title)

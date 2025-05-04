@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Firebase
 
 /// A model representing a doctor in the healthcare system
 struct Doctor: Identifiable, Codable {
@@ -208,5 +209,86 @@ extension Doctor {
             yearOfRegistration: 2005,
             schedule: schedule
         )
+    }
+}
+// MARK: - DoctorManager
+
+class DoctorManager: ObservableObject {
+    @Published var currentUserInfo: [String: Any]?
+    @Published var currentDoctor: Doctor?
+    @Published var error: String?
+    
+    private let db = Firestore.firestore()
+    private let dbName = "hms4"
+    
+    init() {
+        Task {
+            await fetchCurrentUserInfo()
+        }
+    }
+    
+    @MainActor
+    func fetchCurrentUserInfo() async {
+        guard let userId = UserDefaults.standard.string(forKey: "userId") else {
+            self.error = "No user ID found"
+            return
+        }
+        
+        do {
+            let docRef = db.collection("\(dbName)_doctors").document(userId)
+            let document = try await docRef.getDocument()
+            
+            if document.exists, let data = document.data() {
+                self.currentUserInfo = data
+                
+                // Parse date fields
+                var dateOfBirth: Date? = nil
+                if let dobTimestamp = data["dob"] as? Timestamp {
+                    dateOfBirth = dobTimestamp.dateValue()
+                }
+                
+                // Parse schedule data if it exists
+                var schedule: Doctor.Schedule? = nil
+                if let scheduleData = data["schedule"] as? [String: Any] {
+                    var leaveTimeSlots: [Date] = []
+                    var fullDayLeaves: [Date] = []
+                    
+                    // Parse leave time slots
+                    if let leaveTimestamps = scheduleData["leaveTimeSlots"] as? [Timestamp] {
+                        leaveTimeSlots = leaveTimestamps.map { $0.dateValue() }
+                    }
+                    
+                    // Parse full day leaves
+                    if let leaveTimestamps = scheduleData["fullDayLeaves"] as? [Timestamp] {
+                        fullDayLeaves = leaveTimestamps.map { $0.dateValue() }
+                    }
+                    
+                    schedule = Doctor.Schedule(
+                        leaveTimeSlots: leaveTimeSlots.isEmpty ? nil : leaveTimeSlots,
+                        fullDayLeaves: fullDayLeaves.isEmpty ? nil : fullDayLeaves
+                    )
+                }
+                
+                self.currentDoctor = Doctor(
+                    id: document.documentID,
+                    name: data["name"] as? String ?? "",
+                    number: data["number"] as? Int,
+                    email: data["email"] as? String ?? "",
+                    speciality: data["speciality"] as? String ?? "",
+                    licenseRegNo: data["licenseRegNo"] as? String,
+                    smc: data["smc"] as? String,
+                    gender: data["gender"] as? String,
+                    dateOfBirth: dateOfBirth,
+                    yearOfRegistration: data["yearOfRegistration"] as? Int,
+                    schedule: schedule
+                )
+                
+                self.error = nil
+            } else {
+                self.error = "Doctor data not found"
+            }
+        } catch {
+            self.error = "Error fetching doctor info: \(error.localizedDescription)"
+        }
     }
 }

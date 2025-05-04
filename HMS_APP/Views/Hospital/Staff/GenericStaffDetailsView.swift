@@ -77,11 +77,11 @@ struct GenericStaffDetailsView: View {
                             .font(.headline)
                             .foregroundColor(theme.primary)
                         VStack(spacing: 16) {
-                            InfoRow(icon: "calendar", label: "Date of Birth", value: formatDate(staff.dateOfBirth), theme: theme)
+                            StaffInfoRow(icon: "calendar", label: "Date of Birth", value: formatDate(staff.dateOfBirth), theme: theme)
                             Divider().background(theme.border)
-                            InfoRow(icon: "calendar", label: "Date of Joining", value: formatDate(staff.joinDate), theme: theme)
+                            StaffInfoRow(icon: "calendar", label: "Date of Joining", value: formatDate(staff.joinDate), theme: theme)
                             Divider().background(theme.border)
-                            InfoRow(icon: "envelope", label: "Email", value: staff.email, theme: theme)
+                            StaffInfoRow(icon: "envelope", label: "Email", value: staff.email, theme: theme)
                         }
                         .padding()
                         .background(theme.card)
@@ -96,7 +96,7 @@ struct GenericStaffDetailsView: View {
                             .font(.headline)
                             .foregroundColor(theme.primary)
                         VStack(spacing: 16) {
-                            InfoRow(icon: "graduationcap", label: "Education Qualification", value: staff.educationalQualification ?? "Not Specified", theme: theme)
+                            StaffInfoRow(icon: "graduationcap", label: "Education Qualification", value: staff.educationalQualification ?? "Not Specified", theme: theme)
                             Divider().background(theme.border)
                             
                             if let certificates = staff.certificates, !certificates.isEmpty {

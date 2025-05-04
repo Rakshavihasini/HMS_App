@@ -166,7 +166,6 @@ struct SignUpScreen: View {
             TwoFAView(isLoginFlow: false, email: email, userType: userType)
                 .environmentObject(authManager)
         }
-        .navigationBarBackButtonHidden()
     }
 
     // MARK: - Validation Methods
@@ -235,15 +234,20 @@ struct SignUpScreen: View {
         let db = Firestore.firestore()
         let collectionName = getCollectionName()
         
-        let userData: [String: Any] = [
-            "userName": userName,
-            "name": name,
-            "email": email,
-            "createdAt": Date(),
-            "userType": userType
-        ]
-        
-        try await db.collection(collectionName).document().setData(userData)
+        guard let userId = UserDefaults.standard.string(forKey: "userId") else {
+                throw NSError(domain: "UserIDError", code: 1, userInfo: [NSLocalizedDescriptionKey: "userId not found in UserDefaults"])
+            }
+
+            let userData: [String: Any] = [
+                "id": userId,
+                "userName": userName,
+                "name": name,
+                "email": email,
+                "createdAt": Date(),
+                "userType": userType
+            ]
+
+            try await db.collection(collectionName).document(userId).setData(userData)
     }
     
     // Get the appropriate Firestore collection name based on user type

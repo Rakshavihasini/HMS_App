@@ -14,7 +14,7 @@ struct PatientDashboardView: View {
     @State private var patient: Patient?
     @State private var isLoading = true
 
-    var currentAppointments: [Appointment] {
+    var currentAppointments: [AppointmentData] {
         appointmentManager.patientAppointments.filter {
             $0.status == .scheduled || $0.status == .inProgress || $0.status == .rescheduled
         }
@@ -205,9 +205,9 @@ struct DashboardActionButton: View {
 
 // MARK: - Appointments
 struct CurrentAppointmentsSection: View {
-    let appointments: [Appointment]
+    let appointments: [AppointmentData]
     @EnvironmentObject var appointmentManager: AppointmentManager
-    @State private var selectedAppointment: Appointment? = nil
+    @State private var selectedAppointment: AppointmentData? = nil
     @State private var showRescheduleModal = false
     
     var body: some View {

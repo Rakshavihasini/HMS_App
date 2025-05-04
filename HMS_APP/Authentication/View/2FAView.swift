@@ -227,7 +227,7 @@ struct TwoFAView: View {
             case "hospital":
                 HospitalView()
             case "doctor":
-                HospitalView()
+                DoctorTabView()
             case "patient":
                 PatientHomeView()
             default:
@@ -239,7 +239,7 @@ struct TwoFAView: View {
             case "hospital":
                 HospitalView()
             case "doctor":
-                HospitalView()
+                DoctorTabView()
             case "patient":
                 PatientHomeView()
             default:

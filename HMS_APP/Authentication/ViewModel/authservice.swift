@@ -49,6 +49,7 @@ class AuthService: ObservableObject {
             )
             userId = user.id
             print(userId)
+            UserDefaults.standard.set(userId, forKey: "userId")
             
             // Save name and email to UserDefaults
             UserDefaults.standard.set(name, forKey: "tempUserName")

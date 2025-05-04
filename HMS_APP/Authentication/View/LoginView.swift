@@ -132,7 +132,6 @@ struct LoginScreen: View {
         .navigationDestination(isPresented: $navigateToDashboard) {
             getDashboardView()
         }
-        .navigationBarBackButtonHidden()
     }
 
     private func validateEmail(_ email: String) {
@@ -252,7 +251,7 @@ struct LoginScreen: View {
         case "hospital":
             HospitalView()
         case "doctor":
-            HospitalView()
+            DoctorTabView()
         case "patient":
             PatientHomeView()
         default:

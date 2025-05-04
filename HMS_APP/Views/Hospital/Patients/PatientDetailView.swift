@@ -275,7 +275,7 @@ struct PatientDetailView: View {
 
 // Appointment card view
 struct AppointmentCardView: View {
-    let appointment: Appointment
+    let appointment: AppointmentData
     let colorScheme: ColorScheme
     
     private var currentStatus: Appointment.AppointmentStatus {
@@ -510,6 +510,7 @@ struct StatusBadge: View {
     let status: Appointment.AppointmentStatus?
     let appointmentDate: Date?
     
+
     private var currentStatus: Appointment.AppointmentStatus {
         if let date = appointmentDate,
            date < Date() {
@@ -540,6 +541,9 @@ struct StatusBadge: View {
     }
     
     private func statusColor(for status: Appointment.AppointmentStatus) -> Color {
+
+    private func statusColor(for status: AppointmentData.AppointmentStatus?) -> Color {
+
         switch status {
         case .completed:
             return Color.green

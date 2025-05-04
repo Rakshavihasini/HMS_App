@@ -14,12 +14,14 @@ struct HMS_APPApp: App {
         FirebaseApp.configure()
     }
     @StateObject private var authManager = AuthManager()
+    @StateObject private var doctorManager = DoctorManager()
     var body: some Scene {
         WindowGroup {
             NavigationStack{
                 UserSelectionView()
             }
             .environmentObject(authManager)
+            .environmentObject(doctorManager)
         }
     }
 }

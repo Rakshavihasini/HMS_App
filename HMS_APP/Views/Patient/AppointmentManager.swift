@@ -9,14 +9,14 @@ import Foundation
 import FirebaseFirestore
 
 class AppointmentManager: ObservableObject {
-    @Published var allAppointments: [Appointment] = []
+    @Published var allAppointments: [AppointmentData] = []
     @Published var isLoading = false
     @Published var error: String?
     
     private let db = Firestore.firestore()
     private let dbName = "hms4"
     
-    var patientAppointments: [Appointment] = []
+    var patientAppointments: [AppointmentData] = []
     
     init() {
         // Initial fetch when class is initialized
@@ -54,7 +54,7 @@ class AppointmentManager: ObservableObject {
             print("DEBUG: Firestore returned \(snapshot.documents.count) appointments")
             
             // Process the results
-            var appointments: [Appointment] = []
+            var appointments: [AppointmentData] = []
             
             for document in snapshot.documents {
                 let data = document.data()
@@ -85,7 +85,7 @@ class AppointmentManager: ObservableObject {
                 }
                 
                 // Parse status
-                var appointmentStatus: Appointment.AppointmentStatus? = nil
+                var appointmentStatus: AppointmentData.AppointmentStatus? = nil
                 if let statusStr = data["status"] as? String {
                     switch statusStr.uppercased() {
                     case "SCHEDULED":
@@ -109,7 +109,7 @@ class AppointmentManager: ObservableObject {
                 let durationMinutes = data["durationMinutes"] as? Int
                 let notes = data["notes"] as? String ?? data["reason"] as? String
                 
-                let appointment = Appointment(
+                let appointment = AppointmentData(
                     id: id,
                     patientId: patientId,
                     patientName: patientName,
@@ -151,7 +151,7 @@ class AppointmentManager: ObservableObject {
         Task {
             do {
                 try await db.collection("\(dbName)_appointments").document(appointmentId).updateData([
-                    "status": Appointment.AppointmentStatus.cancelled.rawValue
+                    "status": AppointmentData.AppointmentStatus.cancelled.rawValue
                 ])
                 
                 // Refresh the appointments list
@@ -193,7 +193,7 @@ class AppointmentManager: ObservableObject {
         // Update the appointment with new date and time
         try await db.collection("\(dbName)_appointments").document(appointmentId).updateData([
             "appointmentDateTime": newDate,
-            "status": Appointment.AppointmentStatus.rescheduled.rawValue,
+            "status": AppointmentData.AppointmentStatus.rescheduled.rawValue,
             "updatedAt": FieldValue.serverTimestamp()
         ])
         

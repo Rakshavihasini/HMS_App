@@ -3,7 +3,7 @@ import FirebaseFirestore
 
 struct PatientsListView: View {
     @Environment(\.colorScheme) var colorScheme
-    @Binding var selectedTab: Int
+//    @Binding var selectedTab: Int
     @StateObject private var patientDetails = PatientDetails()
     @State private var searchText = ""
     @State private var showPatientDetail = false
@@ -52,6 +52,7 @@ struct PatientsListView: View {
                 }
             }
         }
+        .navigationBarBackButtonHidden()
         .navigationDestination(isPresented: $showPatientDetail) {
             if let patient = selectedPatient {
                 PatientDetailView(patient: patient)

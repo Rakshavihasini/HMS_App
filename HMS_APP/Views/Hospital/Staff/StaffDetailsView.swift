@@ -181,17 +181,17 @@ struct StaffDetailsView: View {
                 .padding(.horizontal, isCompact ? 16 : 24)
             
             VStack(spacing: isCompact ? 16 : 20) {
-                InfoRow(icon: "calendar", label: "Date of Birth", value: formatDate(doctor.dateOfBirth), theme: theme)
+                StaffInfoRow(icon: "calendar", label: "Date of Birth", value: formatDate(doctor.dateOfBirth), theme: theme)
                 Divider().background(theme.border)
-                InfoRow(icon: "envelope", label: "Email", value: doctor.email, theme: theme)
+                StaffInfoRow(icon: "envelope", label: "Email", value: doctor.email, theme: theme)
                 Divider().background(theme.border)
-                InfoRow(icon: "person", label: "Gender", value: doctor.gender ?? "Not Specified", theme: theme)
+                StaffInfoRow(icon: "person", label: "Gender", value: doctor.gender ?? "Not Specified", theme: theme)
                 Divider().background(theme.border)
-                InfoRow(icon: "graduationcap", label: "License No", value: doctor.licenseRegNo ?? "Not Specified", theme: theme)
+                StaffInfoRow(icon: "graduationcap", label: "License No", value: doctor.licenseRegNo ?? "Not Specified", theme: theme)
                 Divider().background(theme.border)
-                InfoRow(icon: "stethoscope", label: "State Medical Council", value: doctor.smc ?? "Not Specified", theme: theme)
+                StaffInfoRow(icon: "stethoscope", label: "State Medical Council", value: doctor.smc ?? "Not Specified", theme: theme)
                 Divider().background(theme.border)
-                InfoRow(icon: "calendar", label: "Year of Registration", value: doctor.yearOfRegistration?.description ?? "Not Specified", theme: theme)
+                StaffInfoRow(icon: "calendar", label: "Year of Registration", value: doctor.yearOfRegistration?.description ?? "Not Specified", theme: theme)
             }
             .padding(.vertical, isCompact ? 16 : 20)
             .padding(.horizontal, isCompact ? 16 : 20)

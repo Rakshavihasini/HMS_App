@@ -200,7 +200,7 @@ struct BookAppointmentView: View {
         let appointmentId = UUID().uuidString
         
         // Get the patient ID from UserDefaults
-        guard let patientId = UserDefaults.standard.string(forKey: "patientId") else {
+        guard let patientId = UserDefaults.standard.string(forKey: "userId") else {
             errorMessage = "Patient ID not found"
             showingError = true
             isLoading = false
@@ -218,7 +218,7 @@ struct BookAppointmentView: View {
             "date": dateString,
             "time": selectedTime,
             "appointmentDateTime": appointmentDateTime as Any,
-            "status": Appointment.AppointmentStatus.scheduled.rawValue,
+            "status": AppointmentData.AppointmentStatus.scheduled.rawValue,
             "durationMinutes": appointmentDuration,
             "reason": reason,
             "createdAt": FieldValue.serverTimestamp(),
