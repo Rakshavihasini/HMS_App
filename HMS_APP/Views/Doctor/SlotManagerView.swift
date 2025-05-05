@@ -172,12 +172,13 @@ struct SlotSection: View {
     let title: String
     let icon: String
     let slots: [String]
-    let blockedSlots: Set<String>
+    let date: Date
     let isFullDayBlocked: Bool
     let leaveColor: Color
     let mainColor: Color
     let theme: Theme
     let onToggle: (String) -> Void
+    let blockedSlots: Set<String>
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -284,10 +285,23 @@ struct DoctorSlotManagerView: View {
         // Initialize with the user ID from UserDefaults
         let userId = UserDefaults.standard.string(forKey: "userId") ?? ""
         _doctorId = State(initialValue: userId)
+        
+        // Fetch doctor data when initialized
+        Task { @MainActor [self] in
+            await self.fetchDoctorData(for: userId)
+        }
     }
     
     init(doctorId: String) {
+        
+        // Initialize with the user ID from UserDefaults
+        let userId = UserDefaults.standard.string(forKey: "userId") ?? ""
         _doctorId = State(initialValue: doctorId)
+        
+        // Fetch doctor data when initialized
+        Task { @MainActor [self] in
+            await self.fetchDoctorData(for: userId)
+        }
     }
     
     init(doctor: Doctor) {
@@ -453,20 +467,22 @@ struct DoctorSlotManagerView: View {
                                 .padding(.horizontal)
                             
                             // Morning slots
+                            // Update the body view to use the corrected SlotSection with blockedSlots
+                            // Find this part in the body and replace it:
+                            // Morning slots
                             SlotSection(
                                 title: "Morning Slots",
                                 icon: "sunrise.fill",
                                 slots: Array(timeSlots.prefix(6)),
-                                blockedSlots: leaveTimeSlots[selectedDate, default: []],
-                                isFullDayBlocked: fullDayLeaves.contains(where: {
-                                    Calendar.current.isDate($0, inSameDayAs: selectedDate)
-                                }),
+                                date: selectedDate,
+                                isFullDayBlocked: isDateInFullDayLeaves(selectedDate),
                                 leaveColor: redLeaveColor,
                                 mainColor: leaveColor,
                                 theme: theme,
                                 onToggle: { slot in
                                     toggleTimeSlot(for: selectedDate, time: slot)
-                                }
+                                },
+                                blockedSlots: blockedSlotsForDate(selectedDate)
                             )
                             
                             // Afternoon slots
@@ -474,17 +490,18 @@ struct DoctorSlotManagerView: View {
                                 title: "Afternoon Slots",
                                 icon: "sunset.fill",
                                 slots: Array(timeSlots.suffix(6)),
-                                blockedSlots: leaveTimeSlots[selectedDate, default: []],
-                                isFullDayBlocked: fullDayLeaves.contains(where: {
-                                    Calendar.current.isDate($0, inSameDayAs: selectedDate)
-                                }),
+                                date: selectedDate,
+                                isFullDayBlocked: isDateInFullDayLeaves(selectedDate),
                                 leaveColor: redLeaveColor,
                                 mainColor: leaveColor,
                                 theme: theme,
                                 onToggle: { slot in
                                     toggleTimeSlot(for: selectedDate, time: slot)
-                                }
+                                },
+                                blockedSlots: blockedSlotsForDate(selectedDate)
                             )
+                            
+                            // Afternoon slots
                         }
                         .padding(.top, 8)
                         
@@ -702,9 +719,9 @@ struct DoctorSlotManagerView: View {
             fullDayLeaves: fullDayLeavesArray
         )
     }
-
+    
     /// Saves the doctor's leave schedule to UserDefaults and prints data for future Firebase integration
-    func saveChanges() {
+    func saveChangesUserDefaults() {
         isLoading = true
         
         // Save data to UserDefaults
@@ -802,19 +819,28 @@ struct DoctorSlotManagerView: View {
     
     /// Toggles a time slot between blocked and available
     func toggleTimeSlot(for date: Date, time: String) {
-        // Save current state for undo
-        let currentSlots = leaveTimeSlots[date, default: []]
-        lastAction = (date: date, slots: currentSlots)
+        // Store the previous state for undo
+        let normalizedDate = Calendar.current.startOfDay(for: date)
+        lastAction = (date: normalizedDate, slots: leaveTimeSlots[normalizedDate, default: []])
         actionType = .blockSlot
         
-        // Apply the change
-        var set = currentSlots
-        if set.contains(time) {
-            set.remove(time)
+        // Toggle the time slot
+        var slots = leaveTimeSlots[normalizedDate, default: []]
+        if slots.contains(time) {
+            slots.remove(time)
         } else {
-            set.insert(time)
+            slots.insert(time)
         }
-        leaveTimeSlots[date] = set
+        
+        // Update the dictionary with normalized date
+        if slots.isEmpty {
+            leaveTimeSlots.removeValue(forKey: normalizedDate)
+        } else {
+            leaveTimeSlots[normalizedDate] = slots
+        }
+        
+        // Force UI update
+        //        ObjectWillChangePublisher().send()
     }
     
     /// Toggles a full day leave for a specific date
@@ -907,11 +933,281 @@ struct DoctorSlotManagerView: View {
         actionType = .none
         showUndoAlert = true
     }
-}
-
-// MARK: - Preview
-struct DoctorSlotManagerView_Previews: PreviewProvider {
-    static var previews: some View {
-        DoctorSlotManagerView(doctorId: "preview_doctor_id")
+    
+    // MARK: - Firebase Functions
+    
+    /// Fetches doctor data from Firestore
+    // Fix in fetchDoctorData method - improved time slot conversion
+    
+    @MainActor
+    private func fetchDoctorData(for doctorId: String) async {
+        isLoading = true
+        defer { isLoading = false }
+        
+        let db = Firestore.firestore()
+        let dbName = "hms4" // Using the same database name as in DoctorModel
+        
+        do {
+            let docRef = db.collection("\(dbName)_doctors").document(doctorId)
+            let document = try await docRef.getDocument()
+            
+            if document.exists, let data = document.data() {
+                // Parse basic doctor info
+                let name = data["name"] as? String ?? ""
+                let email = data["email"] as? String ?? ""
+                let speciality = data["speciality"] as? String ?? ""
+                let number = data["number"] as? Int
+                let licenseRegNo = data["licenseRegNo"] as? String
+                let smc = data["smc"] as? String
+                let gender = data["gender"] as? String
+                
+                // Parse date fields
+                var dateOfBirth: Date? = nil
+                if let dobTimestamp = data["dob"] as? Timestamp {
+                    dateOfBirth = dobTimestamp.dateValue()
+                }
+                
+                // Parse schedule data if it exists
+                var schedule: Doctor.Schedule? = nil
+                var slotsDict: [Date: Set<String>] = [:]
+                
+                if let scheduleData = data["schedule"] as? [String: Any] {
+                    var leaveTimeSlots: [Date] = []
+                    var fullDayLeaves: [Date] = []
+                    
+                    // Parse leave time slots
+                    if let leaveTimestamps = scheduleData["leaveTimeSlots"] as? [Timestamp] {
+                        leaveTimeSlots = leaveTimestamps.map { $0.dateValue() }
+                        print("Fetched \(leaveTimeSlots.count) leave time slots from Firebase")
+                    }
+                    
+                    // Parse full day leaves
+                    if let leaveTimestamps = scheduleData["fullDayLeaves"] as? [Timestamp] {
+                        fullDayLeaves = leaveTimestamps.map { $0.dateValue() }
+                        print("Fetched \(fullDayLeaves.count) full day leaves from Firebase")
+                    }
+                    
+                    schedule = Doctor.Schedule(
+                        leaveTimeSlots: leaveTimeSlots.isEmpty ? nil : leaveTimeSlots,
+                        fullDayLeaves: fullDayLeaves.isEmpty ? nil : fullDayLeaves
+                    )
+                    
+                    // Update our view state with the fetched schedule data
+                    self.fullDayLeaves = Set(fullDayLeaves)
+                    
+                    // Create a consistent time formatter
+                    let timeFormatter = DateFormatter()
+                    timeFormatter.dateFormat = "hh:mm a"
+                    
+                    // Group time slots by day and convert to time strings
+                    for leaveSlot in leaveTimeSlots {
+                        let calendar = Calendar.current
+                        // Extract just the date part (normalize the date)
+                        let dateOnly = calendar.startOfDay(for: leaveSlot)
+                        
+                        // Format the time portion
+                        let timeString = timeFormatter.string(from: leaveSlot)
+                        
+                        // Add to dictionary using the normalized date as key
+                        var existingSlots = slotsDict[dateOnly, default: []]
+                        existingSlots.insert(timeString)
+                        slotsDict[dateOnly] = existingSlots
+                        
+                        print("Added time slot \(timeString) for date \(dateOnly)")
+                    }
+                }
+                
+                // Set the UI state
+                self.leaveTimeSlots = slotsDict
+                print("Set leaveTimeSlots with \(slotsDict.count) dates and \(slotsDict.values.flatMap { $0 }.count) slots")
+                
+                // Create doctor object
+                self.doctor = Doctor(
+                    id: document.documentID,
+                    name: name,
+                    number: number,
+                    email: email,
+                    speciality: speciality,
+                    licenseRegNo: licenseRegNo,
+                    smc: smc,
+                    gender: gender,
+                    dateOfBirth: dateOfBirth,
+                    yearOfRegistration: data["yearOfRegistration"] as? Int,
+                    schedule: schedule
+                )
+                self.doctorId = document.documentID
+                
+                // Debug - print all available slots for today
+                let today = Calendar.current.startOfDay(for: Date())
+                if let todaySlots = slotsDict[today] {
+                    print("Today's blocked slots: \(todaySlots)")
+                } else {
+                    print("No blocked slots for today")
+                }
+            } else {
+                errorMessage = "Doctor data not found"
+                showError = true
+            }
+        } catch {
+            errorMessage = "Error fetching doctor data: \(error.localizedDescription)"
+            showError = true
+        }
     }
-}
+    
+    // Fix in saveChanges method - consistent date handling
+    private func saveChanges() {
+        self.isLoading = true
+        
+        // Convert our UI state back to the format expected by Firestore
+        var leaveTimeSlotsArray: [Date] = []
+        let fullDayLeavesArray = Array(self.fullDayLeaves)
+        
+        // Use consistent date formatter
+        let timeFormatter = DateFormatter()
+        timeFormatter.dateFormat = "hh:mm a"
+        
+        // Convert dictionary of time strings back to Date objects
+        for (date, timeStrings) in self.leaveTimeSlots {
+            let calendar = Calendar.current
+            // Ensure we're using a normalized date
+            let normalizedDate = calendar.startOfDay(for: date)
+            
+            for timeString in timeStrings {
+                if let time = timeFormatter.date(from: timeString) {
+                    // Combine the date and time components
+                    let timeComponents = calendar.dateComponents([.hour, .minute], from: time)
+                    
+                    var combinedComponents = calendar.dateComponents([.year, .month, .day], from: normalizedDate)
+                    combinedComponents.hour = timeComponents.hour
+                    combinedComponents.minute = timeComponents.minute
+                    
+                    if let combinedDate = calendar.date(from: combinedComponents) {
+                        leaveTimeSlotsArray.append(combinedDate)
+                    }
+                }
+            }
+        }
+        
+        print("Saving \(leaveTimeSlotsArray.count) time slots and \(fullDayLeavesArray.count) full day leaves to Firebase")
+        
+        // Create the schedule data for Firestore
+        let scheduleData: [String: Any] = [
+            "leaveTimeSlots": leaveTimeSlotsArray,
+            "fullDayLeaves": fullDayLeavesArray
+        ]
+        
+        // Save to UserDefaults as well for redundancy
+        saveToUserDefaults()
+        
+        // Update Firestore
+        let db = Firestore.firestore()
+        let dbName = "hms4"
+        
+        db.collection("\(dbName)_doctors").document(self.doctorId).updateData([
+            "schedule": scheduleData
+        ]) { error in
+            DispatchQueue.main.async {
+                self.isLoading = false
+                
+                if let error = error {
+                    self.errorMessage = "Error saving changes: \(error.localizedDescription)"
+                    self.showError = true
+                    
+                    // Show error toast
+                    self.showError = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                        self.showError = false
+                    }
+                } else {
+                    self.showSuccessToast = true
+                    
+                    // Clear last action after successful save
+                    self.lastAction = nil
+                    self.actionType = .none
+                    
+                    // Dismiss the toast after a delay
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        self.showSuccessToast = false
+                    }
+                }
+            }
+        }
+    }
+    
+    // Make sure we're properly comparing dates in the UI
+    // Add this helper function
+    private func isDateInFullDayLeaves(_ date: Date) -> Bool {
+        let calendar = Calendar.current
+        let normalizedDate = calendar.startOfDay(for: date)
+        
+        return fullDayLeaves.contains { calendar.isDate($0, inSameDayAs: normalizedDate) }
+    }
+    
+    // Make sure we're using normalized dates when accessing the leaveTimeSlots dictionary
+    private func blockedSlotsForDate(_ date: Date) -> Set<String> {
+        let calendar = Calendar.current
+        let normalizedDate = calendar.startOfDay(for: date)
+        return leaveTimeSlots[normalizedDate, default: []]
+    }
+    
+    // Update the SlotSection struct to use the helper functions
+    struct SlotSection: View {
+        let title: String
+        let icon: String
+        let slots: [String]
+        let date: Date
+        let isFullDayBlocked: Bool
+        let leaveColor: Color
+        let mainColor: Color
+        let theme: Theme
+        let onToggle: (String) -> Void
+        let blockedSlots: Set<String>
+        
+        var body: some View {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Image(systemName: icon)
+                        .foregroundColor(mainColor)
+                    Text(title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(mainColor)
+                }
+                .padding(.horizontal)
+                
+                let columns = [
+                    GridItem(.flexible()),
+                    GridItem(.flexible()),
+                    GridItem(.flexible())
+                ]
+                
+                LazyVGrid(columns: columns, spacing: 12) {
+                    ForEach(slots, id: \.self) { slot in
+                        SlotToggleButton(
+                            time: slot,
+                            isBlocked: blockedSlots.contains(slot) || isFullDayBlocked,
+                            fullDayBlock: isFullDayBlocked,
+                            leaveColor: leaveColor,
+                            theme: theme,
+                            onToggle: {
+                                onToggle(slot)
+                            }
+                        )
+                    }
+                }
+                .padding(.horizontal)
+            }
+            .padding(.vertical, 12)
+            .background(Color(.systemGray6).opacity(0.5))
+            .cornerRadius(16)
+            .padding(.horizontal)
+        }
+    }
+    
+    
+    
+    // MARK: - Preview
+    struct DoctorSlotManagerView_Previews: PreviewProvider {
+        static var previews: some View {
+            DoctorSlotManagerView(doctorId: "preview_doctor_id")
+        }
+    }}
