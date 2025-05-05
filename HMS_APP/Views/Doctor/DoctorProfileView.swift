@@ -91,11 +91,7 @@ struct DoctorProfileView: View {
 
                 Spacer()
 
-                Button(action: {
-                    Task {
-                        await handleLogout()
-                    }
-                }) {
+                NavigationLink(destination: UserSelectionView()){
                     Text("Logout")
                         .frame(maxWidth: .infinity)
                         .padding()
