@@ -110,7 +110,7 @@ struct ConsultationCard: View {
     // Check if appointment is upcoming
     private var isUpcoming: Bool {
         let lowerStatus = appointment.status
-        return lowerStatus?.rawValue == "UPCOMING" || lowerStatus?.rawValue == "CONFIRMED" || lowerStatus?.rawValue == "SCHEDULED"
+        return lowerStatus?.rawValue == "UPCOMING" || lowerStatus?.rawValue == "CONFIRMED" || lowerStatus?.rawValue == "SCHEDULED" || lowerStatus?.rawValue == "RESCHEDULED"
     }
 }
 
