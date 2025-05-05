@@ -12,6 +12,7 @@ struct PatientDocumentsView: View {
     /// Optional title override
     var title: String?
     
+    @Environment(\.colorScheme) var colorScheme
     @State private var documents: [PatientDocument] = []
     @State private var isLoading: Bool = false
     @State private var isUploading: Bool = false
@@ -68,6 +69,7 @@ struct PatientDocumentsView: View {
                 }
             }
         }
+        .background(colorScheme == .dark ? Theme.dark.background : Theme.light.background)
         .navigationTitle(title ?? "Patient Documents")
         .onAppear {
             fetchDocuments()
@@ -131,7 +133,7 @@ struct PatientDocumentsView: View {
                 .foregroundColor(.gray)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(UIColor.systemBackground))
+        .background(colorScheme == .dark ? Theme.dark.background : Theme.light.background)
     }
     
     /// Empty state view when no documents are found
@@ -143,24 +145,6 @@ struct PatientDocumentsView: View {
             
             Text("No documents found")
                 .font(.headline)
-            
-            VStack(spacing: 12) {
-                Button("Refresh") {
-                    fetchDocuments()
-                }
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(8)
-                
-                Button("Upload Document") {
-                    showingDocumentPicker = true
-                }
-                .padding()
-                .background(Color.green)
-                .foregroundColor(.white)
-                .cornerRadius(8)
-            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

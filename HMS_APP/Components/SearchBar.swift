@@ -30,7 +30,7 @@ struct SearchBar: View {
             }
         }
         .padding(.horizontal)
-        .background(colorScheme == .dark ? Color(UIColor.systemGray6) : Color(UIColor.systemGray5))
+        .background(colorScheme == .dark ? Color.white : Color(UIColor.systemGray5))
         .cornerRadius(10)
     }
 }

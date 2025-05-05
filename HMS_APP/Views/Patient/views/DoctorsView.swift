@@ -115,43 +115,39 @@ struct DoctorsView: View {
                         .foregroundColor(colorScheme == .dark ? .white : .medicareBlue)
                     }
 
-                    // Date Selection
-                    VStack(alignment: .leading, spacing: 0) {
-                        Button(action: {
-                            withAnimation(.spring()) {
-                                showDatePicker.toggle()
-                            }
-                        }) {
-                            HStack {
-                                Image(systemName: "calendar")
-                                Text(dateFormatted(selectedDate))
-                                Image(systemName: "chevron.down")
-                                    .font(.caption)
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 20)
-                                    .fill(colorScheme == .dark ? Color(.systemGray6) : Color.medicareBlue.opacity(0.1))
-                            )
-                            .foregroundColor(colorScheme == .dark ? .white : .medicareBlue)
+                    // Date Selection with Popover
+                    Button(action: {
+                        withAnimation(.spring()) {
+                            showDatePicker.toggle()
                         }
-
-                        if showDatePicker {
-                            DatePicker(
-                                "",
-                                selection: $selectedDate,
-                                displayedComponents: .date
-                            )
-                            .datePickerStyle(.graphical)
-                            .padding(12)
-                            .background(
-                                RoundedRectangle(cornerRadius: 15)
-                                    .fill(colorScheme == .dark ? Theme.dark.card : Theme.light.card)
-                                    .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
-                            )
-                            .padding(.top, 8)
+                    }) {
+                        HStack {
+                            Image(systemName: "calendar")
+                            Text(dateFormatted(selectedDate))
+                            Image(systemName: "chevron.down")
+                                .font(.caption)
+                                .rotationEffect(showDatePicker ? .degrees(180) : .degrees(0))
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 20)
+                                .fill(colorScheme == .dark ? Color(.systemGray6) : Color.medicareBlue.opacity(0.1))
+                        )
+                        .foregroundColor(colorScheme == .dark ? .white : .medicareBlue)
+                    }
+                    .popover(isPresented: $showDatePicker, arrowEdge: .top) {
+                        DatePicker(
+                            "Select Date",
+                            selection: $selectedDate,
+                            in: Date()...,
+                            displayedComponents: .date
+                        )
+                        .datePickerStyle(.graphical)
+                        .labelsHidden()
+                        .padding()
+                        .presentationCompactAdaptation(.popover)
+                        .frame(minWidth: 300, minHeight: 350)
                     }
 
                     // Symptoms Button
@@ -355,7 +351,7 @@ struct DoctorDetailView: View {
                             navigateToHome = true
                         }) {
                             Image(systemName: "chevron.left")
-                                .foregroundColor(.black)
+                                .foregroundColor(.gray)
                                 .imageScale(.large)
                                 .padding(8)
                                 .clipShape(Circle())
