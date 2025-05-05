@@ -174,6 +174,12 @@ struct LoginScreen: View {
                 
                 // If successful, proceed to 2FA
                 try await authService.sendEmailOTP()
+                
+                // Store login state and user type
+                UserDefaults.standard.set(true, forKey: "isLoggedIn")
+                UserDefaults.standard.set(userType, forKey: "userType")
+                UserDefaults.standard.synchronize()
+                
                 navigateTo2FA = true
             } else {
                 // No user record exists
