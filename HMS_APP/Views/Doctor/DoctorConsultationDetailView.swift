@@ -66,9 +66,9 @@ struct DoctorConsultationDetailView: View {
                             .foregroundColor(theme.text)
                         
                         VStack(alignment: .leading, spacing: 8) {
-                            InfoRow(label: "Date", value: appointment.date ?? "")
-                            InfoRow(label: "Time", value: appointment.time)
-                            InfoRow(label: "Reason", value: appointment.reason ?? "General Checkup")
+                            InfoRow(icon: "calendar", title: "Date", value: appointment.date ?? "")
+                            InfoRow(icon: "clock", title: "Time", value: appointment.time)
+                            InfoRow(icon: "stethoscope", title: "Reason", value: appointment.reason ?? "General Checkup")
                             HStack {
                                 Text("Status")
                                     .font(.subheadline)
@@ -238,18 +238,23 @@ struct DoctorConsultationDetailView: View {
 }
 
 // MARK: - Info Row
-struct InfoRow: View {
-    let label: String
-    let value: String?
+struct InfoRow1: View {
+    let icon: String
+    let title: String
+    let value: String
     
     var body: some View {
         HStack {
-            Text(label)
+            Image(systemName: icon)
+                .foregroundColor(.gray)
+                .frame(width: 20)
+            
+            Text(title)
                 .font(.subheadline)
                 .foregroundColor(.secondary)
-                .frame(width: 100, alignment: .leading)
+                .frame(width: 80, alignment: .leading)
             
-            Text(value ?? "")
+            Text(value)
                 .font(.subheadline)
             
             Spacer()

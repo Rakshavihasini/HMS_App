@@ -14,76 +14,130 @@ struct PatientProfileView: View {
     @Environment(\.presentationMode) private var presentationMode
     @State private var patient: Patient?
     @State private var isLoading = true
-    @State private var patientEmail: String = ""
-    @State private var patientName: String = ""
-    @State private var patientNumber: Int? = nil
-    @State private var patientDateOfBirth: Date? = nil
-    @State private var patientGender: String? = nil
+    @State private var navigateToUserSelection = false
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                if isLoading {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle())
-                        .scaleEffect(1.5)
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 20) {
+                    if isLoading {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle())
+                            .scaleEffect(1.5)
+                            .padding()
+                    } else if let patient = patient {
+                        // Enhanced Profile Header
+                        VStack(spacing: 16) {
+                            ZStack {
+                                Circle()
+                                    .fill(LinearGradient(
+                                        gradient: Gradient(colors: [Color.medicareBlue.opacity(0.2), Color.medicareBlue.opacity(0.1)]),
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ))
+                                    .frame(width: 120, height: 120)
+                                
+                                Image(systemName: "person.circle.fill")
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(width: 80, height: 80)
+                                    .foregroundColor(.medicareBlue)
+                            }
+                            
+                            VStack(spacing: 8) {
+                                Text(patient.name)
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                
+                                Text(patient.id)
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                        .padding(.vertical, 20)
+                        
+                        // Enhanced Info Section
+                        VStack(alignment: .leading, spacing: 20) {
+                            Text("Personal Information")
+                                .font(.headline)
+                                .padding(.horizontal)
+                            
+                            VStack(spacing: 16) {
+                                InfoRow(icon: "envelope", title: "Email", value: patient.email)
+                                
+                                if let number = patient.number {
+                                    InfoRow(icon: "number.circle", title: "Patient Number", value: "\(number)")
+                                }
+                                
+                                if let dob = patient.dateOfBirth {
+                                    InfoRow(icon: "calendar", title: "Date of Birth", value: formatDate(dob))
+                                }
+                                
+                                if let age = patient.age {
+                                    InfoRow(icon: "clock", title: "Age", value: "\(age) years")
+                                }
+                                
+                                if let gender = patient.gender {
+                                    InfoRow(icon: "person", title: "Gender", value: gender)
+                                }
+                            }
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .cornerRadius(15)
+                            .padding(.horizontal)
+                        }
+                        
+                        // Action Buttons
+                        VStack(spacing: 12) {
+                            Button(action: {}) {
+                                HStack {
+                                    Image(systemName: "square.and.pencil")
+                                    Text("Edit Profile")
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.medicareBlue)
+                                .foregroundColor(.white)
+                                .cornerRadius(12)
+                            }
+                            
+                            Button(action: {
+                                authManager.logout()
+                                navigateToUserSelection = true
+                            }) {
+                                HStack {
+                                    Image(systemName: "rectangle.portrait.and.arrow.right")
+                                    Text("Logout")
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .foregroundColor(.medicareRed)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color.medicareRed, lineWidth: 1)
+                                )
+                            }
+                        }
                         .padding()
-                } else {
-                    ProfileHeaderView(patientName: patientName)
-                    
-                    Divider()
-                    
-                    ProfileInfoSection(
-                        email: patientEmail,
-                        number: patientNumber,
-                        dateOfBirth: patientDateOfBirth,
-                        gender: patientGender
-                    )
-                }
-                
-                Button(action: {}) {
-                    Text("Edit Profile")
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.medicareBlue)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
-                }
-                .padding()
-
-                Button(action: { 
-                    authManager.logout() 
-                }) {
-                    Text("Logout")
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .foregroundColor(.medicareRed)
-                }
-                .padding(.horizontal)
-            }
-            .padding()
-        }
-        .navigationTitle("My Profile")
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button(action: {
-                    // Try multiple dismissal methods for better compatibility
-                    dismiss()
-                    presentationMode.wrappedValue.dismiss()
-                }) {
-                    HStack {
-                        Image(systemName: "chevron.left")
-                        Text("Back")
                     }
-                    .foregroundColor(.medicareBlue)
                 }
             }
+             .navigationTitle("My Profile")
+             .navigationBarTitleDisplayMode(.inline)
+             .navigationBarBackButtonHidden(true)
+         }
+        .navigationDestination(isPresented: $navigateToUserSelection) {
+            UserSelectionView()
         }
         .onAppear {
             fetchPatientInfo()
         }
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: date)
     }
     
     private func fetchPatientInfo() {
@@ -94,46 +148,24 @@ struct PatientProfileView: View {
         
         Task {
             do {
-                // Fetch from Firestore directly to ensure we have the latest data
                 let db = Firestore.firestore()
                 let patientDocument = try await db.collection("hms4_patients").document(userId).getDocument()
                 
                 if patientDocument.exists, let data = patientDocument.data() {
-                    // Extract patient information directly from document
-                    let patientName = data["name"] as? String ?? "Patient"
-                    let patientNumber = data["number"] as? Int
-                    let patientGender = data["gender"] as? String
-                    let patientId = data["id"] as? String ?? UUID().uuidString
-                    let email = data["email"] as? String ?? ""
-                    let dateOfBirth = (data["dob"] as? Timestamp)?.dateValue()
-                    
-                    // Create patient object using the Patient model
                     let patientData = Patient(
-                        id: patientId,
-                        name: patientName,
-                        number: patientNumber,
-                        email: email,
-                        dateOfBirth: dateOfBirth,
-                        gender: patientGender
+                        id: data["id"] as? String ?? userId,
+                        name: data["name"] as? String ?? "Patient",
+                        number: data["number"] as? Int,
+                        email: data["email"] as? String ?? "",
+                        dateOfBirth: (data["dob"] as? Timestamp)?.dateValue(),
+                        gender: data["gender"] as? String
                     )
                     
                     await MainActor.run {
                         self.patient = patientData
-                        self.patientName = patientData.name
-                        self.patientEmail = patientData.email
-                        self.patientNumber = patientData.number
-                        self.patientDateOfBirth = patientData.dateOfBirth
-                        self.patientGender = patientData.gender
-                        
-                        // Try to get email from appwrite data if it's empty
-                        if self.patientEmail.isEmpty {
-                            self.fetchEmailFromAppwrite(userId: userId)
-                        }
-                        
                         self.isLoading = false
                     }
                 } else {
-                    // Fallback to FirestoreService as backup
                     let patientData = try await PatientFirestoreService.shared.getOrCreatePatient(
                         userId: userId,
                         name: "Patient",
@@ -142,17 +174,7 @@ struct PatientProfileView: View {
                     
                     await MainActor.run {
                         self.patient = patientData
-                        self.patientName = patientData.name
-                        self.patientEmail = patientData.email
-                        self.patientNumber = patientData.number
-                        self.patientDateOfBirth = patientData.dateOfBirth
-                        self.patientGender = patientData.gender
                         self.isLoading = false
-                        
-                        // Try to get email from appwrite data
-                        if self.patientEmail.isEmpty {
-                            self.fetchEmailFromAppwrite(userId: userId)
-                        }
                     }
                 }
             } catch {
@@ -163,117 +185,26 @@ struct PatientProfileView: View {
             }
         }
     }
-    
-    private func fetchEmailFromAppwrite(userId: String) {
-        // Fallback to default email if we can't fetch it
-        Task {
-            do {
-                let db = Firestore.firestore()
-                let userDocument = try await db.collection("users").document(userId).getDocument()
-                
-                if let userData = userDocument.data(), let email = userData["email"] as? String {
-                    await MainActor.run {
-                        self.patientEmail = email
-                        
-                        // Update the patient object with the new email if it exists
-                        if let currentPatient = self.patient {
-                            self.patient = Patient(
-                                id: currentPatient.id,
-                                name: currentPatient.name,
-                                number: currentPatient.number,
-                                email: email,
-                                dateOfBirth: currentPatient.dateOfBirth,
-                                gender: currentPatient.gender
-                            )
-                        }
-                    }
-                }
-            } catch {
-                print("Error fetching email from Appwrite: \(error.localizedDescription)")
-            }
-        }
-    }
 }
 
-struct ProfileHeaderView: View {
-    let patientName: String
-    
-    var body: some View {
-        VStack {
-            Image(systemName: "person.crop.circle.fill")
-                .resizable()
-                .frame(width: 100, height: 100)
-                .foregroundColor(.medicareBlue)
-            
-            Text(patientName.isEmpty ? "Loading..." : patientName)
-                .font(.title)
-                .bold()
-            
-            Text("Patient ID: 123456")
-                .font(.subheadline)
-                .foregroundColor(.gray)
-        }
-    }
-}
-
-struct ProfileInfoSection: View {
-    var email: String
-    var number: Int?
-    var dateOfBirth: Date?
-    var gender: String?
-    
-    private var formattedDateOfBirth: String {
-        guard let dob = dateOfBirth else { return "Not provided" }
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        return formatter.string(from: dob)
-    }
-    
-    private var formattedNumber: String {
-        guard let number = number else { return "Not provided" }
-        return "\(number)"
-    }
-    
-    private var age: String {
-        guard let dob = dateOfBirth else { return "Not provided" }
-        let calendar = Calendar.current
-        let ageComponents = calendar.dateComponents([.year], from: dob, to: Date())
-        if let age = ageComponents.year {
-            return "\(age) years"
-        }
-        return "Not provided"
-    }
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 15) {
-            ProfileInfoRow(icon: "envelope", text: email.isEmpty ? "Email not available" : email)
-            ProfileInfoRow(icon: "number", text: "Patient Number: \(formattedNumber)")
-            ProfileInfoRow(icon: "calendar", text: "Date of Birth: \(formattedDateOfBirth)")
-            ProfileInfoRow(icon: "person", text: "Gender: \(gender ?? "Not provided")")
-            ProfileInfoRow(icon: "clock", text: "Age: \(age)")
-            ProfileInfoRow(icon: "phone", text: "(555) 987-6543")
-            ProfileInfoRow(icon: "house", text: "123 Main St, Anytown, USA")
-            ProfileInfoRow(icon: "heart", text: "Blood Type: O+")
-            ProfileInfoRow(icon: "cross.case", text: "Primary Care: Dr. Smith")
-        }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(10)
-    }
-}
-
-struct ProfileInfoRow: View {
+struct InfoRow: View {
     let icon: String
-    let text: String
+    let title: String
+    let value: String
     
     var body: some View {
-        HStack(spacing: 15) {
+        HStack(spacing: 12) {
             Image(systemName: icon)
                 .foregroundColor(.medicareBlue)
-                .frame(width: 20)
+                .frame(width: 24)
             
-            Text(text)
-                .font(.body)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                Text(value)
+                    .font(.body)
+            }
             
             Spacer()
         }
