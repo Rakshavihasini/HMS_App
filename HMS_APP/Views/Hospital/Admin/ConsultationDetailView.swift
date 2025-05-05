@@ -10,22 +10,15 @@ import Charts
 
 struct ConsultationDetailView: View {
     @Environment(\.colorScheme) var colorScheme
+    @StateObject private var appointmentManager = AppointmentManager()
     @State private var selectedTimeRange = TimeRange.day
     @State private var showingFilterSheet = false
+    @State private var selectedDate: Date = Date()
+    @State private var consultationsData: [ConsultationData] = []
     
     var currentTheme: Theme {
         colorScheme == .dark ? Theme.dark : Theme.light
     }
-    
-    let consultationsData: [ConsultationData] = [
-        .init(hour: 8, count: 5, specialty: "Cardiology", avgDuration: 15),
-        .init(hour: 9, count: 8, specialty: "General", avgDuration: 18),
-        .init(hour: 10, count: 12, specialty: "Pediatrics", avgDuration: 22),
-        .init(hour: 11, count: 9, specialty: "Orthopedics", avgDuration: 25),
-        .init(hour: 12, count: 15, specialty: "Neurology", avgDuration: 20),
-        .init(hour: 13, count: 10, specialty: "Dermatology", avgDuration: 17),
-        .init(hour: 14, count: 7, specialty: "Ophthalmology", avgDuration: 16)
-    ]
     
     var totalConsultations: Int {
         consultationsData.reduce(0) { $0 + $1.count }
@@ -33,7 +26,23 @@ struct ConsultationDetailView: View {
     
     var avgConsultationDuration: Int {
         let total = consultationsData.reduce(0) { $0 + ($1.avgDuration * $1.count) }
-        return total / totalConsultations
+        return totalConsultations > 0 ? total / totalConsultations : 0
+    }
+    
+    var peakHour: String {
+        if let peak = consultationsData.max(by: { $0.count < $1.count }) {
+            return "\(peak.hour):00"
+        }
+        return "N/A"
+    }
+    
+    var mostCommonSpecialty: String {
+        let specialtyCounts = Dictionary(grouping: appointmentManager.allAppointments) { $0.doctorName }
+            .mapValues { $0.count }
+        if let mostCommon = specialtyCounts.max(by: { $0.value < $1.value }) {
+            return mostCommon.key
+        }
+        return "N/A"
     }
     
     var body: some View {
@@ -58,14 +67,14 @@ struct ConsultationDetailView: View {
                         
                         SummaryCard(
                             title: "Peak Hour",
-                            value: "12:00",
+                            value: peakHour,
                             icon: "chart.line.uptrend.xyaxis",
                             color: currentTheme.primary
                         )
                         
                         SummaryCard(
                             title: "Most Common",
-                            value: "General",
+                            value: mostCommonSpecialty,
                             icon: "stethoscope",
                             color: currentTheme.tertiary
                         )
@@ -73,64 +82,96 @@ struct ConsultationDetailView: View {
                 }
                 .padding(.horizontal)
                 
-                // Time range selector
-                TimeRangeSelector(selectedRange: $selectedTimeRange)
-                    .padding(.horizontal)
-                
-                // Main chart
-                VStack(alignment: .leading, spacing: 12) {
+                // Time range selector with date navigation
+                VStack(spacing: 8) {
+                    TimeRangeSelector(selectedRange: $selectedTimeRange)
+                    
                     HStack {
-                        Text("Consultations by Hour")
-                            .font(.headline)
+                        Button(action: {
+                            moveDateBackward()
+                        }) {
+                            Image(systemName: "chevron.left")
+                                .foregroundColor(currentTheme.primary)
+                        }
+                        
+                        Spacer()
+                        
+                        Text(getDateRangeText())
+                            .font(.subheadline)
                             .foregroundColor(currentTheme.text)
                         
                         Spacer()
                         
-                        Button(action: { showingFilterSheet = true }) {
-                            Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
-                                .font(.subheadline)
+                        Button(action: {
+                            moveDateForward()
+                        }) {
+                            Image(systemName: "chevron.right")
+                                .foregroundColor(currentTheme.primary)
                         }
-                        .buttonStyle(.bordered)
-                        .tint(currentTheme.primary)
                     }
-                    
-                    Chart(consultationsData) { data in
-                        BarMark(
-                            x: .value("Hour", data.hourString),
-                            y: .value("Count", data.count)
-                        )
-                        .foregroundStyle(currentTheme.primary.gradient)
-                        .cornerRadius(8)
-                    }
-                    .chartXAxis {
-                        AxisMarks(values: .stride(by: 1)) { value in
-                            AxisGridLine()
-                            AxisTick()
-                            AxisValueLabel {
-                                if let hour = value.as(Int.self) {
-                                    Text("\(hour):00")
+                }
+                .padding(.horizontal)
+                
+                if appointmentManager.isLoading {
+                    ProgressView()
+                        .frame(height: 300)
+                        .frame(maxWidth: .infinity)
+                } else {
+                    // Main chart
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Text("Consultations by Hour")
+                                .font(.headline)
+                                .foregroundColor(currentTheme.text)
+                            
+                            Spacer()
+                            
+                            Button(action: { showingFilterSheet = true }) {
+                                Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
+                                    .font(.subheadline)
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(currentTheme.primary)
+                        }
+                        
+                        Chart(consultationsData) { data in
+                            BarMark(
+                                x: .value("Hour", data.hourString),
+                                y: .value("Count", data.count)
+                            )
+                            .foregroundStyle(currentTheme.primary.gradient)
+                            .cornerRadius(8)
+                        }
+                        .chartXAxis {
+                            AxisMarks(values: .stride(by: 1)) { value in
+                                AxisGridLine()
+                                AxisTick()
+                                AxisValueLabel {
+                                    if let hour = value.as(Int.self) {
+                                        Text("\(hour):00")
+                                    }
                                 }
                             }
                         }
-                    }
-                    .chartYAxis {
-                        AxisMarks { value in
-                            AxisGridLine()
-                            AxisTick()
-                            AxisValueLabel()
+                        .chartYAxis {
+                            AxisMarks { value in
+                                AxisGridLine()
+                                AxisTick()
+                                AxisValueLabel()
+                            }
                         }
+                        .frame(height: 300)
+                        .padding()
+                        .background(currentTheme.card)
+                        .cornerRadius(16)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(currentTheme.border, lineWidth: 1)
+                        )
+                        .shadow(color: currentTheme.shadow, radius: 5, x: 0, y: 2)
                     }
-                    .frame(height: 300)
-                    .padding()
-                    .background(currentTheme.card)
-                    .cornerRadius(16)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(currentTheme.border, lineWidth: 1)
-                    )
-                    .shadow(color: currentTheme.shadow, radius: 5, x: 0, y: 2)
+                    .padding(.horizontal)
                 }
-                .padding(.horizontal)
                 
                 // Consultations breakdown
                 VStack(alignment: .leading, spacing: 12) {
@@ -173,14 +214,159 @@ struct ConsultationDetailView: View {
         .sheet(isPresented: $showingFilterSheet) {
             FilterView()
         }
+        .onAppear {
+            fetchAppointments()
+        }
+        .onChange(of: selectedTimeRange) { _ in
+            processAppointmentData()
+        }
+    }
+    
+    private func fetchAppointments() {
+        Task {
+            await appointmentManager.fetchAppointments()
+            processAppointmentData()
+        }
+    }
+    
+    private func processAppointmentData() {
+        var appointmentsByHour: [Int: [Appointment]] = [:]
+        let calendar = Calendar.current
+        
+        // Get date range based on selected time range
+        let (startDate, endDate) = getDateRange()
+        
+        print("DEBUG: Processing appointments for range: \(startDate) to \(endDate)")
+        print("DEBUG: Total appointments available: \(appointmentManager.allAppointments.count)")
+        
+        // First try to get appointments for the selected period
+        for appointment in appointmentManager.patientAppointments {
+            guard let appointmentDateTime = appointment.appointmentDateTime else {
+                print("DEBUG: Appointment has no datetime")
+                continue
+            }
+            
+            print("DEBUG: Processing appointment at \(appointmentDateTime)")
+            
+            // For any view (day/week/month), include both past and upcoming appointments
+            var hour = calendar.component(.hour, from: appointmentDateTime)
+            
+            // Normalize hours to working hours
+            if hour < 8 {
+                hour = 8
+            } else if hour > 20 {
+                hour = 20
+            }
+            
+            if appointmentsByHour[hour] == nil {
+                appointmentsByHour[hour] = []
+            }
+            appointmentsByHour[hour]?.append(appointment)
+        }
+        
+        print("DEBUG: Appointments by hour: \(appointmentsByHour.mapValues { $0.count })")
+        
+        // Create ConsultationData array
+        var newConsultationsData: [ConsultationData] = []
+        
+        // Process appointments for each hour (8 AM to 8 PM)
+        for hour in 8...20 {
+            let appointments = appointmentsByHour[hour] ?? []
+            let count = appointments.count
+            let totalDuration = appointments.reduce(0) { $0 + ($1.durationMinutes ?? 30) }
+            let avgDuration = count > 0 ? totalDuration / count : 0
+            
+            newConsultationsData.append(ConsultationData(
+                hour: hour,
+                count: count,
+                specialty: appointments.first?.doctorName ?? "",
+                avgDuration: avgDuration
+            ))
+        }
+        
+        // Update the UI
+        DispatchQueue.main.async {
+            self.consultationsData = newConsultationsData
+            print("DEBUG: Updated consultations data with \(newConsultationsData.count) entries")
+        }
+    }
+    
+    private func getDateRange() -> (Date, Date) {
+        let calendar = Calendar.current
+        let now = selectedDate
+        
+        switch selectedTimeRange {
+        case .day:
+            let startOfDay = calendar.startOfDay(for: now)
+            let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+            return (startOfDay, endOfDay)
+            
+        case .week:
+            let startOfWeek = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now))!
+            let endOfWeek = calendar.date(byAdding: .day, value: 7, to: startOfWeek)!
+            return (startOfWeek, endOfWeek)
+            
+        case .month:
+            let components = calendar.dateComponents([.year, .month], from: now)
+            let startOfMonth = calendar.date(from: components)!
+            var nextMonthComponents = DateComponents()
+            nextMonthComponents.month = 1
+            let endOfMonth = calendar.date(byAdding: nextMonthComponents, to: startOfMonth)!
+            return (startOfMonth, endOfMonth)
+        }
+    }
+    
+    private func getDateRangeText() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy"
+        
+        let (startDate, endDate) = getDateRange()
+        
+        switch selectedTimeRange {
+        case .day:
+            return formatter.string(from: selectedDate)
+        case .week:
+            return "\(formatter.string(from: startDate)) - \(formatter.string(from: endDate))"
+        case .month:
+            formatter.dateFormat = "MMMM yyyy"
+            return formatter.string(from: selectedDate)
+        }
+    }
+    
+    private func moveDateForward() {
+        let calendar = Calendar.current
+        switch selectedTimeRange {
+        case .day:
+            selectedDate = calendar.date(byAdding: .day, value: 1, to: selectedDate) ?? selectedDate
+        case .week:
+            selectedDate = calendar.date(byAdding: .day, value: 7, to: selectedDate) ?? selectedDate
+        case .month:
+            selectedDate = calendar.date(byAdding: .month, value: 1, to: selectedDate) ?? selectedDate
+        }
+        processAppointmentData()
+    }
+    
+    private func moveDateBackward() {
+        let calendar = Calendar.current
+        switch selectedTimeRange {
+        case .day:
+            selectedDate = calendar.date(byAdding: .day, value: -1, to: selectedDate) ?? selectedDate
+        case .week:
+            selectedDate = calendar.date(byAdding: .day, value: -7, to: selectedDate) ?? selectedDate
+        case .month:
+            selectedDate = calendar.date(byAdding: .month, value: -1, to: selectedDate) ?? selectedDate
+        }
+        processAppointmentData()
     }
     
     func getSpecialtyBreakdown() -> [(specialty: String, count: Int, percentage: Double)] {
-        let specialties = Dictionary(grouping: consultationsData) { $0.specialty }
-            .mapValues { data in data.reduce(0) { $0 + $1.count } }
+        let specialties = Dictionary(grouping: appointmentManager.allAppointments) { $0.doctorName }
+            .mapValues { $0.count }
+        
+        let total = specialties.values.reduce(0, +)
         
         return specialties.map { (specialty, count) in
-            let percentage = Double(count) / Double(totalConsultations) * 100
+            let percentage = total > 0 ? (Double(count) / Double(total) * 100) : 0
             return (specialty: specialty, count: count, percentage: percentage)
         }.sorted { $0.count > $1.count }
     }

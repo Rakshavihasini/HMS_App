@@ -31,6 +31,7 @@ struct PatientDetailView: View {
     
     // Use AppointmentManager for appointments
     @StateObject private var appointmentManager = AppointmentManager()
+    @State private var showingCalendar = false
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -201,13 +202,13 @@ struct PatientDetailView: View {
                     Spacer()
                     
                     Button(action: {
-                        // Calendar action
+                        showingCalendar = true
                     }) {
                         HStack(spacing: 8) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 14, weight: .bold))
+                            Image(systemName: "calendar")
+                                .font(.system(size: 14, weight: .semibold))
                             
-                            Text("New")
+                            Text("Calendar")
                                 .font(.system(size: 14, weight: .semibold))
                         }
                         .foregroundColor(.white)
@@ -266,6 +267,9 @@ struct PatientDetailView: View {
             }
         }
         .navigationBarHidden(true)
+        .sheet(isPresented: $showingCalendar) {
+            AppointmentCalendarView(appointments: appointmentManager.patientAppointments)
+        }
     }
 }
 
@@ -274,6 +278,15 @@ struct AppointmentCardView: View {
     let appointment: AppointmentData
     let colorScheme: ColorScheme
     
+    private var currentStatus: Appointment.AppointmentStatus {
+        // If appointment date is in the past, mark as completed
+        if let appointmentDate = appointment.appointmentDateTime,
+           appointmentDate < Date() {
+            return .completed
+        }
+        return appointment.status ?? .scheduled
+    }
+    
     var body: some View {
         HStack(spacing: 16) {
             ZStack {
@@ -281,8 +294,8 @@ struct AppointmentCardView: View {
                     .fill(
                         LinearGradient(
                             gradient: Gradient(colors: [
-                                colorScheme == .dark ? Color(UIColor.systemGray4) : Color(red: 0.9, green: 0.95, blue: 1.0),
-                                colorScheme == .dark ? Color(UIColor.systemGray5) : Color(red: 0.85, green: 0.9, blue: 0.98)
+                                colorScheme == .dark ? Color(UIColor.systemGray4) : Color(red: 0.95, green: 0.97, blue: 1.0),
+                                colorScheme == .dark ? Color(UIColor.systemGray5) : Color(red: 0.9, green: 0.95, blue: 1.0)
                             ]),
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -307,64 +320,88 @@ struct AppointmentCardView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "calendar")
                             .font(.system(size: 12))
-                            .foregroundColor(colorScheme == .dark ? .gray : Color(.systemGray))
+                            .foregroundColor(.gray)
                         
                         Text(formatDate(appointment.appointmentDateTime))
                             .font(.system(size: 14))
-                            .foregroundColor(colorScheme == .dark ? .gray : Color(.systemGray))
+                            .foregroundColor(.gray)
                     }
                     
                     HStack(spacing: 6) {
                         Image(systemName: "clock")
                             .font(.system(size: 12))
-                            .foregroundColor(colorScheme == .dark ? .gray : Color(.systemGray))
+                            .foregroundColor(.gray)
                         
                         Text(formatTime(appointment.appointmentDateTime))
                             .font(.system(size: 14))
-                            .foregroundColor(colorScheme == .dark ? .gray : Color(.systemGray))
+                            .foregroundColor(.gray)
                     }
                 }
             }
             
             Spacer()
             
-            HStack(spacing: 6) {
+            // Updated status badge
+            HStack(spacing: 4) {
                 Circle()
-                    .fill(statusColor(for: appointment.status))
-                    .frame(width: 8, height: 8)
+                    .fill(statusColor(for: currentStatus))
+                    .frame(width: 6, height: 6)
                 
-                Text(appointment.status?.rawValue ?? "Unknown")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(statusColor(for: appointment.status))
+                Text(currentStatus.rawValue.uppercased())
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(statusColor(for: currentStatus))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
             .padding(.vertical, 6)
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 10)
             .background(
                 Capsule()
-                    .fill(statusColor(for: appointment.status).opacity(0.15))
+                    .fill(statusColor(for: currentStatus).opacity(0.15))
             )
+            .animation(.easeInOut(duration: 0.2), value: currentStatus)
         }
-        .padding(.vertical, 16)
+        .padding(.vertical, 12)
         .padding(.horizontal, 16)
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(colorScheme == .dark ? Color(UIColor.systemGray5) : Color.white)
-                .shadow(color: Color.black.opacity(0.07), radius: 8, x: 0, y: 4)
+        )
+        .shadow(color: Color.black.opacity(0.05), radius: 6, x: 0, y: 3)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.gray.opacity(0.1), lineWidth: 1)
         )
     }
     
-    // Helper functions
+    private func statusColor(for status: Appointment.AppointmentStatus) -> Color {
+        switch status {
+        case .completed:
+            return Color.green
+        case .scheduled:
+            return Color.blue
+        case .cancelled:
+            return Color.red
+        case .inProgress:
+            return Color.orange
+        case .noShow:
+            return Color.gray
+        case .rescheduled:
+            return Color.purple
+        }
+    }
+    
     private func formatDate(_ date: Date?) -> String {
         guard let date = date else { return "N/A" }
         let formatter = DateFormatter()
-        formatter.dateStyle = .medium
+        formatter.dateFormat = "d MMM yyyy"
         return formatter.string(from: date)
     }
     
     private func formatTime(_ date: Date?) -> String {
         guard let date = date else { return "N/A" }
         let formatter = DateFormatter()
-        formatter.timeStyle = .short
+        formatter.dateFormat = "h:mm a"
         return formatter.string(from: date)
     }
     
@@ -381,8 +418,132 @@ struct AppointmentCardView: View {
             return "cross.case"
         }
     }
+}
+
+struct AppointmentCalendarView: View {
+    let appointments: [Appointment]
+    @Environment(\.dismiss) var dismiss
+    @Environment(\.colorScheme) var colorScheme
+    @State private var selectedDate = Date()
     
+    private var appointmentsByDate: [Date: [Appointment]] {
+        Dictionary(grouping: appointments) { appointment in
+            Calendar.current.startOfDay(for: appointment.appointmentDateTime ?? Date())
+        }
+    }
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 0) {
+                DatePicker(
+                    "Select Date",
+                    selection: $selectedDate,
+                    displayedComponents: [.date]
+                )
+                .datePickerStyle(.graphical)
+                .tint(.blue)
+                .padding()
+                
+                Divider()
+                
+                List {
+                    let selectedDayStart = Calendar.current.startOfDay(for: selectedDate)
+                    if let dayAppointments = appointmentsByDate[selectedDayStart] {
+                        ForEach(dayAppointments) { appointment in
+                            AppointmentRow(appointment: appointment)
+                        }
+                    } else {
+                        Text("No appointments on this date")
+                            .foregroundColor(.gray)
+                            .padding()
+                    }
+                }
+            }
+            .navigationTitle("Appointments Calendar")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct AppointmentRow1: View {
+    let appointment: Appointment
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(appointment.doctorName)
+                .font(.headline)
+            
+            if let dateTime = appointment.appointmentDateTime {
+                Text(formatTime(dateTime))
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+            }
+            
+            HStack {
+                Text(appointment.notes ?? "No reason provided")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                
+                Spacer()
+                
+                StatusBadge(status: appointment.status, appointmentDate: appointment.appointmentDateTime)
+            }
+        }
+        .padding(.vertical, 8)
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+}
+
+struct StatusBadge: View {
+    let status: Appointment.AppointmentStatus?
+    let appointmentDate: Date?
+    
+
+    private var currentStatus: Appointment.AppointmentStatus {
+        if let date = appointmentDate,
+           date < Date() {
+            return .completed
+        }
+        return status ?? .scheduled
+    }
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(statusColor(for: currentStatus))
+                .frame(width: 6, height: 6)
+            
+            Text(currentStatus.rawValue.uppercased())
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(statusColor(for: currentStatus))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 10)
+        .background(
+            Capsule()
+                .fill(statusColor(for: currentStatus).opacity(0.15))
+        )
+        .animation(.easeInOut(duration: 0.2), value: currentStatus)
+    }
+    
+    private func statusColor(for status: Appointment.AppointmentStatus) -> Color {
+
     private func statusColor(for status: AppointmentData.AppointmentStatus?) -> Color {
+
         switch status {
         case .completed:
             return Color.green
@@ -396,8 +557,6 @@ struct AppointmentCardView: View {
             return Color.gray
         case .rescheduled:
             return Color.purple
-        case .none:
-            return Color.gray
         }
     }
 }

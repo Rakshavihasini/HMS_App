@@ -8,23 +8,26 @@
 
 import SwiftUI
 import Charts
+import FirebaseFirestore
 
 struct ConsultationsChartView: View {
     @Environment(\.colorScheme) var colorScheme
+    @StateObject private var appointmentManager = AppointmentManager()
+    @State private var consultationsData: [ConsultationData] = []
+    @State private var totalConsultations: Int = 0
+    @State private var peakConsultations: Int = 0
+    @State private var averageDuration: Int = 0
+    @State private var selectedDate: Date = Date()
     
     var currentTheme: Theme {
         colorScheme == .dark ? Theme.dark : Theme.light
     }
     
-    let consultationsData: [ConsultationData] = [
-        .init(hour: 8, count: 5, specialty: "General", avgDuration: 15),
-        .init(hour: 9, count: 8, specialty: "General", avgDuration: 18),
-        .init(hour: 10, count: 12, specialty: "Pediatrics", avgDuration: 20),
-        .init(hour: 11, count: 9, specialty: "Cardiology", avgDuration: 25),
-        .init(hour: 12, count: 15, specialty: "Neurology", avgDuration: 22),
-        .init(hour: 13, count: 10, specialty: "Dermatology", avgDuration: 17),
-        .init(hour: 14, count: 7, specialty: "General", avgDuration: 15)
-    ]
+    var dateString: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "d MMM yyyy"
+        return formatter.string(from: selectedDate)
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -34,51 +37,96 @@ struct ConsultationsChartView: View {
                         .font(.headline)
                         .foregroundColor(currentTheme.text)
                     
-                    Text("Today")
-                        .font(.subheadline)
-                        .foregroundColor(currentTheme.text.opacity(0.6))
+                    HStack {
+                        Button(action: {
+                            withAnimation {
+                                selectedDate = Date()
+                                processAppointmentData()
+                            }
+                        }) {
+                            Text(Calendar.current.isDateInToday(selectedDate) ? "Today" : dateString)
+                                .font(.subheadline)
+                                .foregroundColor(currentTheme.text.opacity(0.6))
+                        }
+                        
+                        if !Calendar.current.isDateInToday(selectedDate) {
+                            Text("•")
+                                .foregroundColor(currentTheme.text.opacity(0.6))
+                            Button(action: {
+                                withAnimation {
+                                    selectedDate = Date()
+                                    processAppointmentData()
+                                }
+                            }) {
+                                Text("Back to Today")
+                                    .font(.subheadline)
+                                    .foregroundColor(currentTheme.primary)
+                            }
+                        }
+                    }
                 }
                 
                 Spacer()
                 
-                NavigationLink(destination: ConsultationDetailView()) {
-                    Text("Details")
-                        .font(.subheadline.bold())
-                        .foregroundColor(currentTheme.primary)
-                }
-            }
-            
-            Chart(consultationsData) { data in
-                BarMark(
-                    x: .value("Hour", data.hourString),
-                    y: .value("Count", data.count)
-                )
-                .foregroundStyle(currentTheme.primary.gradient)
-                .cornerRadius(4)
-            }
-            .chartXAxis {
-                AxisMarks(values: .stride(by: 2)) { value in
-                    AxisGridLine()
-                    AxisTick()
-                    AxisValueLabel {
-                        if let hour = value.as(Int.self) {
-                            Text("\(hour):00")
+                HStack(spacing: 8) {
+                    Button(action: {
+                        withAnimation {
+                            selectedDate = Calendar.current.date(byAdding: .day, value: -1, to: selectedDate) ?? selectedDate
+                            processAppointmentData()
                         }
+                    }) {
+                        Image(systemName: "chevron.left")
+                            .foregroundColor(currentTheme.primary)
+                    }
+                    
+                    Button(action: {
+                        withAnimation {
+                            selectedDate = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) ?? selectedDate
+                            processAppointmentData()
+                        }
+                    }) {
+                        Image(systemName: "chevron.right")
+                            .foregroundColor(currentTheme.primary)
                     }
                 }
             }
-            .chartYAxis {
-                AxisMarks { value in
-                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4]))
-                    AxisTick()
-                    AxisValueLabel()
+            
+            if appointmentManager.isLoading {
+                ProgressView()
+                    .frame(height: 220)
+            } else {
+                Chart(consultationsData) { data in
+                    BarMark(
+                        x: .value("Hour", data.hourString),
+                        y: .value("Count", data.count)
+                    )
+                    .foregroundStyle(currentTheme.primary.gradient)
+                    .cornerRadius(4)
                 }
+                .chartXAxis {
+                    AxisMarks(values: .stride(by: 2)) { value in
+                        AxisGridLine()
+                        AxisTick()
+                        AxisValueLabel {
+                            if let hour = value.as(Int.self) {
+                                Text("\(hour):00")
+                            }
+                        }
+                    }
+                }
+                .chartYAxis {
+                    AxisMarks { value in
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4]))
+                        AxisTick()
+                        AxisValueLabel()
+                    }
+                }
+                .frame(height: 220)
             }
-            .frame(height: 220)
             
             HStack {
                 VStack(alignment: .leading) {
-                    Text("66")
+                    Text("\(totalConsultations)")
                         .font(.title2.bold())
                         .foregroundColor(currentTheme.text)
                     Text("Total")
@@ -89,7 +137,7 @@ struct ConsultationsChartView: View {
                 Spacer()
                 
                 VStack(alignment: .center) {
-                    Text("15")
+                    Text("\(peakConsultations)")
                         .font(.title2.bold())
                         .foregroundColor(currentTheme.text)
                     Text("Peak")
@@ -100,7 +148,7 @@ struct ConsultationsChartView: View {
                 Spacer()
                 
                 VStack(alignment: .trailing) {
-                    Text("19 min")
+                    Text("\(averageDuration) min")
                         .font(.title2.bold())
                         .foregroundColor(currentTheme.text)
                     Text("Avg Time")
@@ -120,6 +168,77 @@ struct ConsultationsChartView: View {
         )
         .shadow(color: currentTheme.shadow, radius: 10, x: 0, y: 2)
         .padding(.horizontal)
+        .onAppear {
+            fetchTodayAppointments()
+        }
+    }
+    
+    private func fetchTodayAppointments() {
+        Task {
+            await appointmentManager.fetchAppointments()
+            processAppointmentData()
+        }
+    }
+    
+    private func processAppointmentData() {
+        // Create a dictionary to store appointments by hour
+        var appointmentsByHour: [Int: [Appointment]] = [:]
+        
+        // Get selected date components
+        let calendar = Calendar.current
+        let startOfSelectedDate = calendar.startOfDay(for: selectedDate)
+        let endOfSelectedDate = calendar.date(byAdding: .day, value: 1, to: startOfSelectedDate)!
+        
+        // Process each appointment
+        for appointment in appointmentManager.allAppointments {
+            guard let appointmentDateTime = appointment.appointmentDateTime else { continue }
+            
+            // Only include appointments for the selected date
+            if appointmentDateTime >= startOfSelectedDate && appointmentDateTime < endOfSelectedDate {
+                let hour = calendar.component(.hour, from: appointmentDateTime)
+                if appointmentsByHour[hour] == nil {
+                    appointmentsByHour[hour] = []
+                }
+                appointmentsByHour[hour]?.append(appointment)
+            }
+        }
+        
+        // Create ConsultationData array
+        var newConsultationsData: [ConsultationData] = []
+        var totalCount = 0
+        var maxCount = 0
+        var totalDuration = 0
+        
+        // Process appointments for each hour (8 AM to 8 PM)
+        for hour in 8...20 {
+            let appointments = appointmentsByHour[hour] ?? []
+            let count = appointments.count
+            
+            // Use the actual duration from appointments if available, otherwise default to 30
+            let totalDurationForHour = appointments.reduce(0) { sum, apt in
+                sum + (apt.durationMinutes ?? 30)
+            }
+            let avgDuration = appointments.isEmpty ? 0 : totalDurationForHour / count
+            
+            totalCount += count
+            maxCount = max(maxCount, count)
+            totalDuration += totalDurationForHour
+            
+            newConsultationsData.append(ConsultationData(
+                hour: hour,
+                count: count,
+                specialty: appointments.first?.doctorName ?? "",
+                avgDuration: avgDuration
+            ))
+        }
+        
+        // Update the UI
+        DispatchQueue.main.async {
+            self.consultationsData = newConsultationsData
+            self.totalConsultations = totalCount
+            self.peakConsultations = maxCount
+            self.averageDuration = totalCount > 0 ? totalDuration / totalCount : 0
+        }
     }
 }
 

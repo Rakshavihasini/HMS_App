@@ -9,14 +9,30 @@ import SwiftUI
 
 struct ConsultationsPerHourCard: View {
     @Environment(\.colorScheme) var colorScheme
+    @StateObject private var appointmentManager = AppointmentManager()
     
     var currentTheme: Theme {
         colorScheme == .dark ? Theme.dark : Theme.light
     }
     
-    let currentConsults = 8
+    private var currentConsults: Int {
+        let calendar = Calendar.current
+        let now = Date()
+        let currentHour = calendar.component(.hour, from: now)
+        
+        return appointmentManager.allAppointments.filter { appointment in
+            guard let appointmentDateTime = appointment.appointmentDateTime else { return false }
+            let appointmentHour = calendar.component(.hour, from: appointmentDateTime)
+            let isToday = calendar.isDate(appointmentDateTime, inSameDayAs: now)
+            return isToday && appointmentHour == currentHour
+        }.count
+    }
+    
     let targetConsults = 10
-    let percentComplete = 80.0
+    
+    private var percentComplete: Double {
+        Double(currentConsults) / Double(targetConsults) * 100
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -39,7 +55,7 @@ struct ConsultationsPerHourCard: View {
                         .frame(width: 36, height: 36)
                     
                     Circle()
-                        .trim(from: 0, to: CGFloat(percentComplete) / 100)
+                        .trim(from: 0, to: CGFloat(min(percentComplete, 100)) / 100)
                         .stroke(currentTheme.primary, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                         .frame(width: 36, height: 36)
                         .rotationEffect(.degrees(-90))
@@ -52,7 +68,7 @@ struct ConsultationsPerHourCard: View {
             
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    Text("\(Int(percentComplete))% of target")
+                    Text("\(Int(min(percentComplete, 100)))% of target")
                         .font(.caption)
                         .foregroundColor(currentTheme.text.opacity(0.6))
                     
@@ -75,5 +91,10 @@ struct ConsultationsPerHourCard: View {
                 .stroke(currentTheme.border, lineWidth: 1)
         )
         .shadow(color: currentTheme.shadow, radius: 10, x: 0, y: 2)
+        .onAppear {
+            Task {
+                await appointmentManager.fetchAppointments()
+            }
+        }
     }
 }
