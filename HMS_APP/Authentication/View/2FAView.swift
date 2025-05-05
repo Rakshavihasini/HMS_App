@@ -210,6 +210,12 @@ struct TwoFAView: View {
                         userEmail: savedEmail.isEmpty ? authService.email : savedEmail,
                         userType: userType
                     )
+                    
+                    // Set persistent login state
+                    UserDefaults.standard.set(true, forKey: "isLoggedIn")
+                    UserDefaults.standard.set(userType, forKey: "userType")
+                    UserDefaults.standard.synchronize()
+                    
                     navigateToHome = true
                 }
             } else {

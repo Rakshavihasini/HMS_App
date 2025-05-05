@@ -15,10 +15,31 @@ struct HMS_APPApp: App {
     }
     @StateObject private var authManager = AuthManager()
     @StateObject private var doctorManager = DoctorManager()
+    
     var body: some Scene {
         WindowGroup {
-            NavigationStack{
-                UserSelectionView()
+            NavigationStack {
+                if authManager.isLoggedIn {
+                    // Show appropriate dashboard based on user type
+                    Group {
+                        if let userType = UserDefaults.standard.string(forKey: "userType") {
+                            switch userType {
+                            case "hospital":
+                                HospitalView()
+                            case "doctor":
+                                DoctorTabView()
+                            case "patient":
+                                PatientHomeView()
+                            default:
+                                UserSelectionView()
+                            }
+                        } else {
+                            UserSelectionView()
+                        }
+                    }
+                } else {
+                    UserSelectionView()
+                }
             }
             .environmentObject(authManager)
             .environmentObject(doctorManager)
