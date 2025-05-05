@@ -1,5 +1,5 @@
 {
-  "originHash" : "fff529f2876b7d1a7a3f821709741feecf7d21b0618e00084f5bb5736c56005a",
+  "originHash" : "369604452091caefd22894d2f5839f8a74642cf32d1fc0d32796ed8cd493d0e6",
   "pins" : [
     {
       "identity" : "abseil-cpp-binary",
@@ -197,15 +197,6 @@
       "state" : {
         "revision" : "3d8596ed08bd13520157f0355e35caed215ffbfa",
         "version" : "1.6.3"
-      }
-    },
-    {
-      "identity" : "swift-markdown-ui",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/gonzalezreal/swift-markdown-ui",
-      "state" : {
-        "revision" : "5f613358148239d0292c0cef674a3c2314737f9e",
-        "version" : "2.4.1"
       }
     },
     {

@@ -279,10 +279,9 @@ struct ConsultationNotesView: View {
             
             if let data = document.data() {
                 // Parse appointment data
-                self.patientId = data["patientId"] as? String ?? ""
-                self.doctorId = data["doctorId"] as? String ?? ""
-                self.doctorName = data["doctorName"] as? String ?? ""
-                
+                self.patientId = data["patId"] as? String ?? ""
+                self.doctorId = data["docId"] as? String ?? ""
+                self.doctorName = data["docName"] as? String ?? ""                
                 // Parse date
                 if let dateString = data["date"] as? String {
                     let dateFormatter = DateFormatter()
