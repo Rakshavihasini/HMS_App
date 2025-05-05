@@ -245,9 +245,9 @@ struct ConsultationDoctorDetailView: View {
                             .foregroundColor(theme.text)
                         
                         VStack(alignment: .leading, spacing: 8) {
-                            InfoRow(label: "Date", value: appointment.date ?? "")
-                            InfoRow(label: "Time", value: appointment.time)
-                            InfoRow(label: "Reason", value: appointment.reason ?? "General Checkup")
+                            InfoRow(icon: "calendar", title: "Date", value: appointment.date ?? "")
+                            InfoRow(icon: "clock", title: "Time", value: appointment.time)
+                            InfoRow(icon: "list.clipboard", title: "Reason", value: appointment.reason ?? "General Checkup")
                             HStack {
                                 Text("Status")
                                     .font(.subheadline)

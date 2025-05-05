@@ -41,64 +41,98 @@ struct DoctorsView: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
-            // Header & Search
-            VStack(alignment: .leading, spacing: 12) {
-                
-                Text("Find Your Specialist")
-                    .font(.title)
-                    .bold()
-                    .padding(.horizontal)
-
+        VStack(spacing: 0) {
+            // Enhanced Header
+            VStack(alignment: .leading, spacing: 16) {
                 HStack {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Find Your Specialist")
+                            .font(.system(size: 28, weight: .bold))
+                        Text("Book appointments with top specialists")
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal)
+                .padding(.top, 16)
+
+                // Enhanced Search Bar
+                HStack(spacing: 12) {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.gray)
                     TextField("Search by name, speciality", text: $searchText)
                         .foregroundColor(.primary)
+                    if !searchText.isEmpty {
+                        Button(action: { searchText = "" }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.gray)
+                        }
+                    }
                 }
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(30)
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 15)
+                        .fill(Color(.systemGray6))
+                        .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 2)
+                )
                 .padding(.horizontal)
             }
-            .padding(.top)
+            .padding(.bottom, 16)
+            .background(Color(.systemBackground))
+            .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 5)
 
-            // Filter + Symptoms
+            // Enhanced Filters Section
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    // Department
+                HStack(spacing: 12) {
+                    // Department Menu
                     Menu {
                         ForEach(departments, id: \.self) { dept in
-                            Button(action: {
-                                selectedDepartment = dept
-                                // We'll handle filtering in the filteredDoctors computed property
-                                // instead of fetching by speciality
-                            }) {
-                                Text(dept)
+                            Button(action: { selectedDepartment = dept }) {
+                                HStack {
+                                    Text(dept)
+                                    if selectedDepartment == dept {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
                             }
                         }
                     } label: {
-                        Text(selectedDepartment)
-                            .font(.caption)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(Color(.systemGray6))
-                            .clipShape(Capsule())
+                        HStack {
+                            Image(systemName: "building.2")
+                            Text(selectedDepartment)
+                            Image(systemName: "chevron.down")
+                                .font(.caption)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 20)
+                                .fill(Color.medicareBlue.opacity(0.1))
+                        )
+                        .foregroundColor(.medicareBlue)
                     }
-                    
-                    // Availability Date Picker (as a button + sheet)
+
+                    // Date Selection
                     VStack(alignment: .leading, spacing: 0) {
                         Button(action: {
-                            withAnimation {
+                            withAnimation(.spring()) {
                                 showDatePicker.toggle()
                             }
                         }) {
-                            Label(dateFormatted(selectedDate), systemImage: "calendar")
-                                .font(.caption)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(Color(.systemGray6))
-                                .clipShape(Capsule())
+                            HStack {
+                                Image(systemName: "calendar")
+                                Text(dateFormatted(selectedDate))
+                                Image(systemName: "chevron.down")
+                                    .font(.caption)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 20)
+                                    .fill(Color.medicareBlue.opacity(0.1))
+                            )
+                            .foregroundColor(.medicareBlue)
                         }
 
                         if showDatePicker {
@@ -108,51 +142,57 @@ struct DoctorsView: View {
                                 displayedComponents: .date
                             )
                             .datePickerStyle(.graphical)
-                            .transition(.opacity.combined(with: .slide))
-                            .padding(8)
-                            .background(Color(.systemBackground))
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .shadow(radius: 3)
-                            .padding(.top, 4)
-                        }
-                    }
-                    .onChange(of: selectedDate) { _ in
-                        withAnimation {
-                            showDatePicker = false
+                            .padding(12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 15)
+                                    .fill(Color(.systemBackground))
+                                    .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
+                            )
+                            .padding(.top, 8)
                         }
                     }
 
-                    
-                    // Questionnaire
+                    // Symptoms Button
                     NavigationLink(destination: QuestionaireContentView()) {
-                        Label("Find By Symptoms", systemImage: "stethoscope")
-                            .font(.caption)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(Color.medicareBlue)
-                            .foregroundColor(.white)
-                            .clipShape(Capsule())
+                        HStack {
+                            Image(systemName: "stethoscope")
+                            Text("Find By Symptoms")
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 20)
+                                .fill(Color.medicareBlue)
+                        )
+                        .foregroundColor(.white)
                     }
                 }
                 .padding(.horizontal)
             }
+            .padding(.vertical, 12)
 
-            // Doctor Cards
+            // Enhanced Doctor List
             if doctorService.doctors.isEmpty {
                 Spacer()
-                ProgressView("Loading doctors...")
+                VStack(spacing: 12) {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                    Text("Loading doctors...")
+                        .foregroundColor(.gray)
+                }
                 Spacer()
             } else if filteredDoctors.isEmpty {
                 Spacer()
-                VStack {
+                VStack(spacing: 16) {
                     Image(systemName: "magnifyingglass")
-                        .font(.largeTitle)
+                        .font(.system(size: 40))
                         .foregroundColor(.gray)
                     Text("No doctors found")
                         .font(.headline)
                     Text("Try adjusting your search criteria")
-                        .font(.caption)
+                        .font(.subheadline)
                         .foregroundColor(.gray)
+                        .multilineTextAlignment(.center)
                 }
                 Spacer()
             } else {
@@ -160,15 +200,13 @@ struct DoctorsView: View {
                     LazyVStack(spacing: 16) {
                         ForEach(filteredDoctors, id: \.id) { doctor in
                             NavigationLink(destination: DoctorDetailView(doctor: convertToProfile(doctor))) {
-                                DoctorCard(doctor: doctor)
+                                EnhancedDoctorCard(doctor: doctor)
                             }
                         }
                     }
-                    .padding(.horizontal)
+                    .padding()
                 }
             }
-
-            Spacer()
         }
         .navigationBarHidden(true)
         .navigationBarBackButtonHidden(true)
@@ -209,51 +247,77 @@ struct DoctorsView: View {
     }
 }
 
-// Custom Doctor Card for the Admin Doctor model
-struct DoctorCard: View {
+// Enhanced Doctor Card
+struct EnhancedDoctorCard: View {
     let doctor: Doctor
     
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "person.circle.fill")
-                .resizable()
-                .frame(width: 60, height: 60)
-                .foregroundColor(.medicareBlue)
-                .padding(8)
-                .background(Color(.systemGray6))
-                .clipShape(Circle())
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(doctor.name)
-                    .font(.headline)
+        HStack(spacing: 16) {
+            // Avatar Section
+            ZStack {
+                Circle()
+                    .fill(LinearGradient(
+                        gradient: Gradient(colors: [Color.medicareBlue.opacity(0.2), Color.medicareBlue.opacity(0.1)]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ))
+                    .frame(width: 70, height: 70)
                 
-                Text(doctor.speciality)
-                    .font(.subheadline)
+                Image(systemName: "person.circle.fill")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 40, height: 40)
                     .foregroundColor(.medicareBlue)
+            }
+            
+            // Info Section
+            VStack(alignment: .leading, spacing: 6) {
+                Text(doctor.name)
+                    .font(.system(size: 18, weight: .semibold))
                 
-                if let gender = doctor.gender {
-                    Text(gender)
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                HStack {
+                    Image(systemName: "stethoscope")
+                        .foregroundColor(.medicareBlue)
+                        .font(.system(size: 12))
+                    Text(doctor.speciality)
+                        .font(.system(size: 14))
+                        .foregroundColor(.medicareBlue)
                 }
                 
-                Text(doctor.email)
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                if let gender = doctor.gender {
+                    HStack {
+                        Image(systemName: gender.lowercased() == "male" ? "person" : "person.dress")
+                            .font(.system(size: 12))
+                        Text(gender)
+                            .font(.system(size: 12))
+                            .foregroundColor(.gray)
+                    }
+                }
             }
-            .padding(.vertical, 8)
             
             Spacer()
             
-            Image(systemName: "chevron.right")
-                .foregroundColor(.gray)
-                .padding(.trailing, 8)
-                .padding(.top, 8)
+            // Arrow and Status
+            VStack(spacing: 8) {
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.gray)
+                    .font(.system(size: 14, weight: .semibold))
+                
+                Circle()
+                    .fill(Color.green)
+                    .frame(width: 8, height: 8)
+            }
         }
-        .padding(12)
-        .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.systemBackground))
+                .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+        )
     }
 }
 
