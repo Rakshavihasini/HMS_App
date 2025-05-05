@@ -2,11 +2,14 @@ import SwiftUI
 
 struct StaffDetailsView: View {
     @Environment(\.dismiss) var dismiss
-    @State private var doctor: Doctor
+    @State private var staff: Staff
     @State private var isPresentingEditView = false
     @State private var showRemoveConfirmation = false
     @Environment(\.presentationMode) var presentationMode
     @Environment(\.colorScheme) var colorScheme
+    @StateObject private var staffService = StaffService()
+    @StateObject private var doctorService = DoctorService()
+    @Binding var shouldRefreshList: Bool
     
     // Animation states
     @State private var profileOpacity = 0.0
@@ -32,13 +35,65 @@ struct StaffDetailsView: View {
         return sizeClass == .compact
     }
     
-    init(doctor: Doctor) {
-        self._doctor = State(initialValue: doctor)
+    init(staff: Staff, shouldRefreshList: Binding<Bool>) {
+        self._staff = State(initialValue: staff)
+        self._shouldRefreshList = shouldRefreshList
     }
     
     private func formatDate(_ date: Date?) -> String {
         guard let date = date else { return "Not Specified" }
         return dateFormatter.string(from: date)
+    }
+    
+    private func handleRemove() {
+        if staff.staffRole == "Doctor" {
+            // Create a Doctor object from Staff data
+            let doctor = Doctor(
+                id: staff.id,
+                name: staff.name,
+                number: nil,
+                email: staff.email,
+                speciality: staff.educationalQualification ?? "",
+                licenseRegNo: nil,
+                smc: nil,
+                gender: nil,
+                dateOfBirth: staff.dateOfBirth,
+                yearOfRegistration: nil,
+                schedule: nil
+            )
+            
+            Task {
+                await MainActor.run {
+                    doctorService.deleteDoctor(doctor: doctor) { success in
+                        if success {
+                            print("✅ Doctor deleted successfully")
+                            shouldRefreshList = true
+                            DispatchQueue.main.async {
+                                self.presentationMode.wrappedValue.dismiss()
+                            }
+                        } else {
+                            print("❌ Failed to delete doctor")
+                        }
+                    }
+                }
+            }
+        } else {
+            Task {
+                await MainActor.run {
+                    staffService.deleteStaff(staff: staff) { success in
+                        if success {
+                            print("✅ Staff deleted successfully")
+                            shouldRefreshList = true
+                            DispatchQueue.main.async {
+                                self.presentationMode.wrappedValue.dismiss()
+                            }
+                        } else {
+                            print("❌ Failed to delete staff")
+                        }
+                    }
+                }
+            }
+        }
     }
     
     var body: some View {
@@ -87,25 +142,19 @@ struct StaffDetailsView: View {
             }
             .navigationBarHidden(true)
             .sheet(isPresented: $isPresentingEditView) {
-                EditDoctorView(doctor: doctor) { updatedDoctor in
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        doctor = updatedDoctor
-                    }
+                // Handle edit view based on type
+                if staff.staffRole == "Doctor" {
+                    Text("Edit Doctor View") // Replace with actual EditDoctorView
+                } else {
+                    Text("Edit Staff View") // Replace with actual EditStaffView
                 }
             }
             .alert(isPresented: $showRemoveConfirmation) {
                 Alert(
                     title: Text("Confirm Removal"),
-                    message: Text("Are you sure you want to remove \(doctor.name)? This action cannot be undone."),
+                    message: Text("Are you sure you want to remove \(staff.name)? This action cannot be undone."),
                     primaryButton: .destructive(Text("Remove")) {
-                        let doctorService = DoctorService()
-                        doctorService.deleteDoctor(doctor: doctor) { success in
-                            if success {
-                                withAnimation {
-                                    presentationMode.wrappedValue.dismiss()
-                                }
-                            }
-                        }
+                        handleRemove()
                     },
                     secondaryButton: .cancel()
                 )
@@ -134,7 +183,7 @@ struct StaffDetailsView: View {
                 
                 Spacer()
                 
-                Text("Staff Details")
+                Text("\(staff.staffRole ?? "Staff") Details")
                     .font(.headline)
                     .foregroundColor(.white)
                 
@@ -166,7 +215,7 @@ struct StaffDetailsView: View {
                 .shadow(color: theme.shadow, radius: 2)
                 .transition(.scale.combined(with: .opacity))
             
-            Text(doctor.name)
+            Text(staff.name)
                 .font(.system(size: isCompact ? 20 : 24, weight: .bold))
                 .foregroundColor(theme.primary)
         }
@@ -181,17 +230,17 @@ struct StaffDetailsView: View {
                 .padding(.horizontal, isCompact ? 16 : 24)
             
             VStack(spacing: isCompact ? 16 : 20) {
-                StaffInfoRow(icon: "calendar", label: "Date of Birth", value: formatDate(doctor.dateOfBirth), theme: theme)
+                StaffInfoRow(icon: "calendar", label: "Date of Birth", value: formatDate(staff.dateOfBirth), theme: theme)
                 Divider().background(theme.border)
-                StaffInfoRow(icon: "envelope", label: "Email", value: doctor.email, theme: theme)
+                StaffInfoRow(icon: "envelope", label: "Email", value: staff.email, theme: theme)
                 Divider().background(theme.border)
-                StaffInfoRow(icon: "person", label: "Gender", value: doctor.gender ?? "Not Specified", theme: theme)
+                StaffInfoRow(icon: "person", label: "Role", value: staff.staffRole ?? "Not Specified", theme: theme)
                 Divider().background(theme.border)
-                StaffInfoRow(icon: "graduationcap", label: "License No", value: doctor.licenseRegNo ?? "Not Specified", theme: theme)
-                Divider().background(theme.border)
-                StaffInfoRow(icon: "stethoscope", label: "State Medical Council", value: doctor.smc ?? "Not Specified", theme: theme)
-                Divider().background(theme.border)
-                StaffInfoRow(icon: "calendar", label: "Year of Registration", value: doctor.yearOfRegistration?.description ?? "Not Specified", theme: theme)
+                StaffInfoRow(icon: "graduationcap", label: "Qualification", value: staff.educationalQualification ?? "Not Specified", theme: theme)
+                if let certificates = staff.certificates, !certificates.isEmpty {
+                    Divider().background(theme.border)
+                    StaffInfoRow(icon: "doc.text", label: "Certificates", value: certificates.joined(separator: ", "), theme: theme)
+                }
             }
             .padding(.vertical, isCompact ? 16 : 20)
             .padding(.horizontal, isCompact ? 16 : 20)
@@ -247,6 +296,7 @@ struct StaffDetailsView: View {
         .padding(.vertical, isCompact ? 16 : 20)
     }
 }
+
 struct ScaleButtonStyle: ButtonStyle {
     func makeBody(configuration: Self.Configuration) -> some View {
         configuration.label
