@@ -21,7 +21,6 @@ struct DoctorTabView: View {
     }
     
     var body: some View {
-        NavigationStack {
             VStack(spacing: 0) {                
                 // Switch between doctor screens
                 ZStack {
@@ -56,7 +55,7 @@ struct DoctorTabView: View {
                 }
             }
         }
-    }
+    
 }
 
 struct DoctorTabBar: View {
