@@ -278,7 +278,7 @@ struct AppointmentCardView: View {
     let appointment: AppointmentData
     let colorScheme: ColorScheme
     
-    private var currentStatus: Appointment.AppointmentStatus {
+    private var currentStatus: AppointmentData.AppointmentStatus {
         // If appointment date is in the past, mark as completed
         if let appointmentDate = appointment.appointmentDateTime,
            appointmentDate < Date() {
@@ -374,7 +374,7 @@ struct AppointmentCardView: View {
         )
     }
     
-    private func statusColor(for status: Appointment.AppointmentStatus) -> Color {
+    private func statusColor(for status: AppointmentData.AppointmentStatus) -> Color {
         switch status {
         case .completed:
             return Color.green
@@ -421,12 +421,12 @@ struct AppointmentCardView: View {
 }
 
 struct AppointmentCalendarView: View {
-    let appointments: [Appointment]
+    let appointments: [AppointmentData]
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) var colorScheme
     @State private var selectedDate = Date()
     
-    private var appointmentsByDate: [Date: [Appointment]] {
+    private var appointmentsByDate: [Date: [AppointmentData]] {
         Dictionary(grouping: appointments) { appointment in
             Calendar.current.startOfDay(for: appointment.appointmentDateTime ?? Date())
         }
@@ -473,7 +473,7 @@ struct AppointmentCalendarView: View {
 }
 
 struct AppointmentRow1: View {
-    let appointment: Appointment
+    let appointment: AppointmentData
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -493,7 +493,7 @@ struct AppointmentRow1: View {
                 
                 Spacer()
                 
-                StatusBadge(status: appointment.status, appointmentDate: appointment.appointmentDateTime)
+                StatusBadge1(status: appointment.status, appointmentDate: appointment.appointmentDateTime)
             }
         }
         .padding(.vertical, 8)
@@ -506,12 +506,11 @@ struct AppointmentRow1: View {
     }
 }
 
-struct StatusBadge: View {
-    let status: Appointment.AppointmentStatus?
+struct StatusBadge1: View {
+    let status: AppointmentData.AppointmentStatus?
     let appointmentDate: Date?
     
-
-    private var currentStatus: Appointment.AppointmentStatus {
+    private var currentStatus: AppointmentData.AppointmentStatus {
         if let date = appointmentDate,
            date < Date() {
             return .completed
@@ -540,10 +539,7 @@ struct StatusBadge: View {
         .animation(.easeInOut(duration: 0.2), value: currentStatus)
     }
     
-    private func statusColor(for status: Appointment.AppointmentStatus) -> Color {
-
-    private func statusColor(for status: AppointmentData.AppointmentStatus?) -> Color {
-
+    private func statusColor(for status: AppointmentData.AppointmentStatus) -> Color {
         switch status {
         case .completed:
             return Color.green

@@ -230,7 +230,7 @@ struct ConsultationDetailView: View {
     }
     
     private func processAppointmentData() {
-        var appointmentsByHour: [Int: [Appointment]] = [:]
+        var appointmentsByHour: [Int: [AppointmentData]] = [:]
         let calendar = Calendar.current
         
         // Get date range based on selected time range

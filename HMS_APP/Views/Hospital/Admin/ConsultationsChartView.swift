@@ -182,7 +182,7 @@ struct ConsultationsChartView: View {
     
     private func processAppointmentData() {
         // Create a dictionary to store appointments by hour
-        var appointmentsByHour: [Int: [Appointment]] = [:]
+        var appointmentsByHour: [Int: [AppointmentData]] = [:]
         
         // Get selected date components
         let calendar = Calendar.current
