@@ -360,21 +360,19 @@ struct DoctorSlotManagerView: View {
                         .foregroundColor(theme.text)
                 }
                 .padding(.horizontal)
+                if let doctor = doctor {
+                    HStack {
+                        Text("Dr. \(doctor.name)")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(theme.text)
+                        Spacer()
+                    }
+                    .padding(.horizontal)
+                }
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
-                        // Doctor name display (if available)
-                        if let doctor = doctor {
-                            HStack {
-                                Text("Dr. \(doctor.name)")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(theme.text)
-                                Spacer()
-                            }
-                            .padding(.horizontal)
-                        }
                         
-                        // Date selector with legend
                         VStack(alignment: .leading, spacing: 14) {
                             CalendarView(
                                 selectedDate: $selectedDate,

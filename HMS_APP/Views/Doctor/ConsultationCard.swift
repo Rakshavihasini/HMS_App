@@ -68,6 +68,8 @@ struct ConsultationCard: View {
             // Buttons
             HStack(spacing: 10) {
                 // Reschedule Button
+                
+                if isUpcoming {
                 ActionButton(
                     icon: "calendar.badge.clock",
                     title: "Reschedule",
@@ -75,10 +77,19 @@ struct ConsultationCard: View {
                 )
                 
                 // Join Button (only for upcoming appointments)
-                if isUpcoming {
                     ActionButton(
                         icon: "play.fill",
                         title: "Start Consult",
+                        filled: true,
+                        action: {
+                            onStartConsult?()
+                        }
+                    )
+                }
+                else if isUpcoming == false{
+                    ActionButton(
+                        icon: "doc.text.magnifyingglass",
+                        title: "View Notes",
                         filled: true,
                         action: {
                             onStartConsult?()
