@@ -44,46 +44,78 @@ struct PatientProfileView: View {
                                     .foregroundColor(.medicareBlue)
                             }
                             
-                            VStack(spacing: 8) {
-                                Text(patient.name)
-                                    .font(.title2)
-                                    .fontWeight(.bold)
-                                
-                                Text(patient.id)
-                                    .font(.subheadline)
-                                    .foregroundColor(.gray)
-                            }
+                            Text(patient.name)
+                                .font(.title2)
+                                .fontWeight(.bold)
                         }
                         .padding(.vertical, 20)
                         
-                        // Enhanced Info Section
+                        // Personal Information Section
                         VStack(alignment: .leading, spacing: 20) {
-                            Text("Personal Information")
-                                .font(.headline)
-                                .padding(.horizontal)
+                            HStack {
+                                Image(systemName: "person.text.rectangle")
+                                    .foregroundColor(.medicareBlue)
+                                    .font(.title3)
+                                Text("Personal Information")
+                                    .font(.title3)
+                                    .fontWeight(.bold)
+                            }
+                            .padding(.horizontal)
                             
                             VStack(spacing: 16) {
-                                InfoRow(icon: "envelope", title: "Email", value: patient.email)
-                                
+                                // Patient Number
                                 if let number = patient.number {
-                                    InfoRow(icon: "number.circle", title: "Patient Number", value: "\(number)")
+                                    InfoRow(
+                                        icon: "number.circle.fill",
+                                        title: "Patient ID",
+                                        value: String(format: "HMS-%04d", number),
+                                        iconColor: .medicareBlue
+                                    )
                                 }
                                 
+                                // Email
+                                InfoRow(
+                                    icon: "envelope.fill",
+                                    title: "Email",
+                                    value: patient.email,
+                                    iconColor: .medicareBlue
+                                )
+                                
+                                // Date of Birth
                                 if let dob = patient.dateOfBirth {
-                                    InfoRow(icon: "calendar", title: "Date of Birth", value: formatDate(dob))
+                                    InfoRow(
+                                        icon: "calendar.circle.fill",
+                                        title: "Date of Birth",
+                                        value: formatDate(dob),
+                                        iconColor: .medicareBlue
+                                    )
                                 }
                                 
+                                // Age
                                 if let age = patient.age {
-                                    InfoRow(icon: "clock", title: "Age", value: "\(age) years")
+                                    InfoRow(
+                                        icon: "clock.fill",
+                                        title: "Age",
+                                        value: "\(age) years",
+                                        iconColor: .medicareBlue
+                                    )
                                 }
                                 
+                                // Gender
                                 if let gender = patient.gender {
-                                    InfoRow(icon: "person", title: "Gender", value: gender)
+                                    InfoRow(
+                                        icon: gender.lowercased() == "male" ? "person.fill" : "person.dress.fill",
+                                        title: "Gender",
+                                        value: gender,
+                                        iconColor: .medicareBlue
+                                    )
                                 }
                             }
                             .padding()
-                            .background(Color(.systemGray6))
-                            .cornerRadius(15)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color(.systemGray6))
+                            )
                             .padding(.horizontal)
                         }
                         
@@ -93,12 +125,15 @@ struct PatientProfileView: View {
                                 HStack {
                                     Image(systemName: "square.and.pencil")
                                     Text("Edit Profile")
+                                        .fontWeight(.semibold)
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(Color.medicareBlue)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color.medicareBlue)
+                                )
                                 .foregroundColor(.white)
-                                .cornerRadius(12)
                             }
                             
                             Button(action: {
@@ -108,13 +143,14 @@ struct PatientProfileView: View {
                                 HStack {
                                     Image(systemName: "rectangle.portrait.and.arrow.right")
                                     Text("Logout")
+                                        .fontWeight(.semibold)
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding()
                                 .foregroundColor(.medicareRed)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.medicareRed, lineWidth: 1)
+                                        .stroke(Color.medicareRed, lineWidth: 1.5)
                                 )
                             }
                         }
@@ -122,10 +158,10 @@ struct PatientProfileView: View {
                     }
                 }
             }
-             .navigationTitle("My Profile")
-             .navigationBarTitleDisplayMode(.inline)
-             .navigationBarBackButtonHidden(true)
-         }
+            .navigationTitle("My Profile")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(true)
+        }
         .navigationDestination(isPresented: $navigateToUserSelection) {
             UserSelectionView()
         }
@@ -136,7 +172,7 @@ struct PatientProfileView: View {
     
     private func formatDate(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.dateStyle = .medium
+        formatter.dateStyle = .long
         return formatter.string(from: date)
     }
     
@@ -187,15 +223,18 @@ struct PatientProfileView: View {
     }
 }
 
+// Enhanced InfoRow
 struct InfoRow: View {
     let icon: String
     let title: String
     let value: String
+    let iconColor: Color
     
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .foregroundColor(.medicareBlue)
+                .foregroundColor(iconColor)
+                .font(.system(size: 20))
                 .frame(width: 24)
             
             VStack(alignment: .leading, spacing: 4) {
@@ -204,6 +243,7 @@ struct InfoRow: View {
                     .foregroundColor(.gray)
                 Text(value)
                     .font(.body)
+                    .fontWeight(.medium)
             }
             
             Spacer()

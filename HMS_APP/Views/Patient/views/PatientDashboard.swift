@@ -13,6 +13,7 @@ struct PatientDashboardView: View {
     @EnvironmentObject var authManager: AuthManager
     @State private var patient: Patient?
     @State private var isLoading = true
+    @Environment(\.colorScheme) var colorScheme
 
     var currentAppointments: [AppointmentData] {
         appointmentManager.patientAppointments.filter {
@@ -57,7 +58,7 @@ struct PatientDashboardView: View {
             await fetchPatientInfo()
             await appointmentManager.fetchAppointments()
         }
-        .primaryBackground()
+        .background(colorScheme == .dark ? Theme.dark.background : Theme.light.background)
     }
     
     private func fetchPatientInfo() async {
@@ -91,6 +92,7 @@ struct PatientDashboardView: View {
 // MARK: - Dashboard Header
 struct DashboardHeaderView: View {
     let patientName: String
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         HStack {
@@ -101,7 +103,7 @@ struct DashboardHeaderView: View {
                 Text(patientName)
                     .font(.title)
                     .bold()
-                    .adaptiveTextColor()
+                    .foregroundColor(colorScheme == .dark ? .white : .primary)
             }
             Spacer()
             
@@ -111,11 +113,11 @@ struct DashboardHeaderView: View {
                 Image(systemName: "person.crop.circle.fill")
                     .resizable()
                     .frame(width: 40, height: 40)
-                    .foregroundColor(.medicareBlue)
+                    .foregroundColor(colorScheme == .dark ? Theme.dark.primary : .medicareBlue)
                     .padding(5)
                     .background(
                         Circle()
-                            .fill(Color.white)
+                            .fill(colorScheme == .dark ? Theme.dark.card : .white)
                             .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
                     )
             }
@@ -126,10 +128,13 @@ struct DashboardHeaderView: View {
 
 // MARK: - No Appointments View
 struct NoAppointmentsView: View {
+    @Environment(\.colorScheme) var colorScheme
+    
     var body: some View {
         VStack(spacing: 16) {
             Text("No Upcoming Appointments")
                 .font(.headline)
+                .foregroundColor(colorScheme == .dark ? .white : .primary)
                 .padding(.top)
             
             Text("Book an appointment with a doctor to get started")
@@ -143,23 +148,28 @@ struct NoAppointmentsView: View {
                     .font(.headline)
                     .foregroundColor(.white)
                     .padding()
-                    .background(Color.medicareBlue)
+                    .background(colorScheme == .dark ? Theme.dark.primary : Color.medicareBlue)
                     .cornerRadius(10)
             }
             .padding()
         }
         .frame(maxWidth: .infinity)
-        .themedCard()
+        .background(colorScheme == .dark ? Theme.dark.card : Theme.light.card)
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
         .padding(.horizontal)
     }
 }
 
 // MARK: - Quick Actions
 struct QuickActionsView: View {
+    @Environment(\.colorScheme) var colorScheme
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Quick Actions")
                 .font(.headline)
+                .foregroundColor(colorScheme == .dark ? .white : .primary)
                 .padding(.horizontal)
 
             HStack(spacing: 15) {
@@ -187,13 +197,13 @@ struct DashboardActionButton: View {
                 .font(.title2)
                 .foregroundColor(.white)
                 .padding()
-                .background(Color.medicareBlue)
+                .background(colorScheme == .dark ? Theme.dark.primary : Color.medicareBlue)
                 .clipShape(Circle())
 
             Text(title)
                 .font(.caption)
                 .multilineTextAlignment(.center)
-                .foregroundColor(.primary)
+                .foregroundColor(colorScheme == .dark ? .white : .primary)
         }
         .frame(maxWidth: .infinity)
         .padding()
@@ -209,10 +219,11 @@ struct CurrentAppointmentsSection: View {
     @EnvironmentObject var appointmentManager: AppointmentManager
     @State private var selectedAppointment: AppointmentData? = nil
     @State private var showRescheduleModal = false
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            DashboardSectionHeader(title: "Current Appointments", destination: MedicalRecordsView())
+            DashboardSectionHeader(title: "Current Appointments", destination: AllAppointmentsView())
 
             ForEach(appointments.prefix(2)) { appointment in
                 AppointmentCard(appointment: appointment)
@@ -220,9 +231,6 @@ struct CurrentAppointmentsSection: View {
                     .contentShape(Rectangle())
                     .onTapGesture {
                         selectedAppointment = appointment
-                        print("DEBUG: Appointment tapped - ID: \(appointment.id)")
-                        print("DEBUG: Doctor: \(appointment.doctorName), DateTime: \(appointment.appointmentDateTime?.description ?? "Not scheduled")")
-                        print("DEBUG: Notes: \(appointment.notes ?? "No notes"), Status: \(appointment.status?.rawValue ?? "Unknown")")
                     }
             }
         }
@@ -237,7 +245,6 @@ struct CurrentAppointmentsSection: View {
             )
             .onDisappear {
                 if !showRescheduleModal {
-                    // Only clear selection if not showing reschedule modal
                     selectedAppointment = nil
                 }
             }
@@ -247,19 +254,261 @@ struct CurrentAppointmentsSection: View {
                 AppointmentRescheduleView(appointment: appointment)
             } else {
                 Text("No appointment selected for rescheduling")
+                    .foregroundColor(colorScheme == .dark ? .white : .primary)
             }
         }
     }
 }
 
-// MARK: - Reports
-struct LatestReportsView: View {
+struct AppointmentCard: View {
+    let appointment: AppointmentData
+    @Environment(\.colorScheme) var colorScheme
+    
+    var statusColor: Color {
+        switch appointment.status {
+        case .scheduled, .rescheduled:
+            return .medicareBlue
+        case .inProgress:
+            return .medicareGreen
+        case .completed:
+            return .medicareGreen
+        case .cancelled, .noShow:
+            return .medicareRed
+        case .none:
+            return .gray
+        }
+    }
+    
+    var statusText: String {
+        appointment.status?.rawValue.capitalized ?? "Unknown"
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            DashboardSectionHeader(title: "Latest Reports", destination: MedicalRecordsView())
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(appointment.doctorName)
+                        .font(.headline)
+                        .foregroundColor(colorScheme == .dark ? .white : .primary)
+                    
+                    if let dateTime = appointment.appointmentDateTime {
+                        HStack {
+                            Image(systemName: "calendar")
+                                .foregroundColor(.gray)
+                            Text(dateTime, style: .date)
+                                .foregroundColor(.gray)
+                        }
+                        .font(.subheadline)
+                        
+                        HStack {
+                            Image(systemName: "clock")
+                                .foregroundColor(.gray)
+                            Text(dateTime, style: .time)
+                                .foregroundColor(.gray)
+                        }
+                        .font(.subheadline)
+                    }
+                }
+                
+                Spacer()
+                
+                Text(statusText)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(statusColor)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(statusColor.opacity(0.15))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(statusColor.opacity(0.3), lineWidth: 1)
+                    )
+            }
+            
+            if let notes = appointment.notes {
+                Text(notes)
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                    .lineLimit(2)
+            }
+            
+            HStack(spacing: 12) {
+                Image(systemName: "stethoscope")
+                    .foregroundColor(colorScheme == .dark ? Theme.dark.primary : .medicareBlue)
+                Text("Consultation")
+                    .font(.subheadline)
+                    .foregroundColor(colorScheme == .dark ? Theme.dark.primary : .medicareBlue)
+                
+                Spacer()
+                
+                if let duration = appointment.durationMinutes {
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock.fill")
+                            .font(.caption)
+                        Text("\(duration) min")
+                            .font(.caption)
+                    }
+                    .foregroundColor(.gray)
+                }
+            }
+        }
+        .padding()
+        .background(colorScheme == .dark ? Theme.dark.card : Color(.systemBackground))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+        )
+    }
+}
 
-            ReportCard(title: "Blood Test", date: "May 15, 2023", status: "Normal")
-            ReportCard(title: "X-Ray Chest", date: "April 22, 2023", status: "Clear")
+// MARK: - All Appointments View
+struct AllAppointmentsView: View {
+    @EnvironmentObject var appointmentManager: AppointmentManager
+    @State private var selectedFilter: AppointmentFilter = .all
+    @Environment(\.colorScheme) var colorScheme
+    
+    enum AppointmentFilter {
+        case all, upcoming, completed, cancelled
+        
+        var title: String {
+            switch self {
+            case .all: return "All"
+            case .upcoming: return "Upcoming"
+            case .completed: return "Completed"
+            case .cancelled: return "Cancelled"
+            }
+        }
+    }
+    
+    var filteredAppointments: [AppointmentData] {
+        switch selectedFilter {
+        case .all:
+            return appointmentManager.patientAppointments
+        case .upcoming:
+            return appointmentManager.patientAppointments.filter { 
+                $0.status == .scheduled || $0.status == .rescheduled || $0.status == .inProgress 
+            }
+        case .completed:
+            return appointmentManager.patientAppointments.filter { $0.status == .completed }
+        case .cancelled:
+            return appointmentManager.patientAppointments.filter { 
+                $0.status == .cancelled || $0.status == .noShow 
+            }
+        }
+    }
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            // Filter Buttons
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach([AppointmentFilter.all, .upcoming, .completed, .cancelled], id: \.title) { filter in
+                        Button(action: { selectedFilter = filter }) {
+                            Text(filter.title)
+                                .font(.system(size: 14, weight: .medium))
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(
+                                    selectedFilter == filter ? 
+                                        Color.medicareBlue : 
+                                        (colorScheme == .dark ? Color(.systemGray6) : Color(.systemGray6))
+                                )
+                                .foregroundColor(
+                                    selectedFilter == filter ? 
+                                        .white : 
+                                        (colorScheme == .dark ? .white : .primary)
+                                )
+                                .clipShape(Capsule())
+                                .overlay(
+                                    Capsule()
+                                        .stroke(
+                                            selectedFilter == filter ? 
+                                                Color.medicareBlue : 
+                                                Color.medicareBlue.opacity(0.3),
+                                            lineWidth: selectedFilter == filter ? 0 : 1
+                                        )
+                                )
+                        }
+                    }
+                }
+                .padding(.horizontal)
+            }
+            .padding(.top, 8)
+            
+            if appointmentManager.isLoading {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle())
+                    .padding()
+            } else if filteredAppointments.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "calendar.badge.exclamationmark")
+                        .font(.system(size: 40))
+                        .foregroundColor(.gray)
+                    Text("No appointments found")
+                        .font(.headline)
+                        .adaptiveTextColor()
+                    Text("There are no appointments in this category")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                        .multilineTextAlignment(.center)
+                }
+                .padding()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .themedCard()
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 16) {
+                        ForEach(filteredAppointments) { appointment in
+                            AppointmentCard(appointment: appointment)
+                                .padding(.horizontal)
+                        }
+                    }
+                    .padding(.vertical)
+                }
+            }
+        }
+        .navigationTitle("Appointments")
+        .navigationBarTitleDisplayMode(.inline)
+        .primaryBackground()
+    }
+}
+
+// MARK: - Reports
+struct LatestReportsView: View {
+    @Environment(\.colorScheme) var colorScheme
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Image(systemName: "chart.bar.doc.horizontal")
+                    .foregroundColor(colorScheme == .dark ? Theme.dark.primary : .medicareBlue)
+                    .font(.title3)
+                Text("Latest Reports")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .foregroundColor(colorScheme == .dark ? .white : .primary)
+            }
+            .padding(.horizontal)
+
+            ReportCard(
+                title: "Complete Blood Count",
+                date: "May 15, 2023",
+                status: "Within Range",
+                icon: "drop.fill",
+                iconBackground: Color.red.opacity(0.8)
+            )
+            ReportCard(
+                title: "Chest X-Ray",
+                date: "April 22, 2023",
+                status: "No Abnormalities",
+                icon: "lungs.fill",
+                iconBackground: Color.blue.opacity(0.8)
+            )
         }
     }
 }
@@ -268,49 +517,81 @@ struct ReportCard: View {
     let title: String
     let date: String
     let status: String
+    let icon: String
+    let iconBackground: Color
+    @Environment(\.colorScheme) var colorScheme
 
     var statusColor: Color {
-        status == "Normal" || status == "Clear" ? .medicareGreen : .medicareRed
+        status == "Within Range" || status == "No Abnormalities" ? .medicareGreen : .medicareRed
     }
 
     var body: some View {
-        HStack {
-            Image(systemName: "doc.text")
-                .foregroundColor(.medicareBlue)
-                .frame(width: 40)
+        HStack(spacing: 16) {
+            ZStack {
+                Circle()
+                    .fill(LinearGradient(
+                        gradient: Gradient(colors: [iconBackground, iconBackground.opacity(0.7)]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ))
+                    .frame(width: 50, height: 50)
+                
+                Image(systemName: icon)
+                    .foregroundColor(.white)
+                    .font(.system(size: 24))
+            }
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(title)
-                    .font(.subheadline)
-                Text(date)
-                    .font(.caption)
-                    .foregroundColor(.gray)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(colorScheme == .dark ? .white : .primary)
+                HStack {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 12))
+                        .foregroundColor(.gray)
+                    Text(date)
+                        .font(.system(size: 14))
+                        .foregroundColor(.gray)
+                }
             }
 
             Spacer()
 
             Text(status)
-                .font(.subheadline)
+                .font(.system(size: 13, weight: .medium))
                 .foregroundColor(statusColor)
                 .padding(.horizontal, 12)
-                .padding(.vertical, 4)
-                .background(statusColor.opacity(0.2))
-                .cornerRadius(12)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(statusColor.opacity(0.15))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(statusColor.opacity(0.3), lineWidth: 1)
+                )
         }
         .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(10)
-        .shadow(radius: 2)
+        .background(colorScheme == .dark ? Theme.dark.card : Color(.systemBackground))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+        )
         .padding(.horizontal)
     }
 }
 
 // MARK: - Reminders
 struct RemindersView: View {
+    @Environment(\.colorScheme) var colorScheme
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Reminders")
                 .font(.headline)
+                .foregroundColor(colorScheme == .dark ? .white : .primary)
                 .padding(.horizontal)
 
             ReminderCard(title: "Take Metformin", time: "8:00 AM", isCompleted: true)
@@ -323,6 +604,7 @@ struct ReminderCard: View {
     let title: String
     let time: String
     let isCompleted: Bool
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         HStack {
@@ -333,7 +615,7 @@ struct ReminderCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.subheadline)
-                    .foregroundColor(isCompleted ? .gray : .primary)
+                    .foregroundColor(isCompleted ? .gray : (colorScheme == .dark ? .white : .primary))
                     .strikethrough(isCompleted)
                 
                 Text(time)
@@ -344,9 +626,13 @@ struct ReminderCard: View {
             Spacer()
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(colorScheme == .dark ? Theme.dark.card : Color(.systemBackground))
         .cornerRadius(10)
-        .shadow(radius: 2)
+        .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+        )
         .padding(.horizontal)
     }
 }
@@ -355,18 +641,21 @@ struct ReminderCard: View {
 struct DashboardSectionHeader<Destination: View>: View {
     let title: String
     let destination: Destination
+    @EnvironmentObject var appointmentManager: AppointmentManager
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
         HStack {
             Text(title)
                 .font(.headline)
+                .foregroundColor(colorScheme == .dark ? .white : .primary)
 
             Spacer()
 
-            NavigationLink(destination: destination) {
+            NavigationLink(destination: destination.environmentObject(appointmentManager)) {
                 Text("View All")
                     .font(.subheadline)
-                    .foregroundColor(.medicareBlue)
+                    .foregroundColor(colorScheme == .dark ? Theme.dark.primary : .medicareBlue)
             }
         }
         .padding(.horizontal)

@@ -66,9 +66,9 @@ struct DoctorConsultationDetailView: View {
                             .foregroundColor(theme.text)
                         
                         VStack(alignment: .leading, spacing: 8) {
-                            InfoRow(icon: "calendar", title: "Date", value: appointment.date ?? "")
-                            InfoRow(icon: "clock", title: "Time", value: appointment.time)
-                            InfoRow(icon: "stethoscope", title: "Reason", value: appointment.reason ?? "General Checkup")
+                            InfoRow(icon: "calendar", title: "Date", value: appointment.date ?? "", iconColor: .gray)
+                            InfoRow(icon: "clock", title: "Time", value: appointment.time, iconColor: .gray)
+                            InfoRow(icon: "stethoscope", title: "Reason", value: appointment.reason ?? "General Checkup", iconColor: .gray)
                             HStack {
                                 Text("Status")
                                     .font(.subheadline)
@@ -242,11 +242,12 @@ struct InfoRow1: View {
     let icon: String
     let title: String
     let value: String
+    let iconColor: Color
     
     var body: some View {
         HStack {
             Image(systemName: icon)
-                .foregroundColor(.gray)
+                .foregroundColor(iconColor)
                 .frame(width: 20)
             
             Text(title)

@@ -17,6 +17,7 @@ struct DoctorsView: View {
     @State private var showDatePicker = false
     @State private var isLoading = false
     @Environment(\.presentationMode) var presentationMode
+    @Environment(\.colorScheme) var colorScheme
     
     let departments = ["All", "Cardiology", "Neurology", "Orthopedics", "Pediatrics"]
     let availabilityOptions = ["All", "Available Today"]
@@ -48,6 +49,7 @@ struct DoctorsView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Find Your Specialist")
                             .font(.system(size: 28, weight: .bold))
+                            .foregroundColor(colorScheme == .dark ? .white : .primary)
                         Text("Book appointments with top specialists")
                             .font(.subheadline)
                             .foregroundColor(.gray)
@@ -62,7 +64,7 @@ struct DoctorsView: View {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.gray)
                     TextField("Search by name, speciality", text: $searchText)
-                        .foregroundColor(.primary)
+                        .foregroundColor(colorScheme == .dark ? .white : .primary)
                     if !searchText.isEmpty {
                         Button(action: { searchText = "" }) {
                             Image(systemName: "xmark.circle.fill")
@@ -73,13 +75,13 @@ struct DoctorsView: View {
                 .padding(12)
                 .background(
                     RoundedRectangle(cornerRadius: 15)
-                        .fill(Color(.systemGray6))
+                        .fill(colorScheme == .dark ? Color(.systemGray6) : Color(.systemGray6))
                         .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 2)
                 )
                 .padding(.horizontal)
             }
             .padding(.bottom, 16)
-            .background(Color(.systemBackground))
+            .background(colorScheme == .dark ? Theme.dark.card : Theme.light.card)
             .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 5)
 
             // Enhanced Filters Section
@@ -108,9 +110,9 @@ struct DoctorsView: View {
                         .padding(.vertical, 8)
                         .background(
                             RoundedRectangle(cornerRadius: 20)
-                                .fill(Color.medicareBlue.opacity(0.1))
+                                .fill(colorScheme == .dark ? Color(.systemGray6) : Color.medicareBlue.opacity(0.1))
                         )
-                        .foregroundColor(.medicareBlue)
+                        .foregroundColor(colorScheme == .dark ? .white : .medicareBlue)
                     }
 
                     // Date Selection
@@ -130,9 +132,9 @@ struct DoctorsView: View {
                             .padding(.vertical, 8)
                             .background(
                                 RoundedRectangle(cornerRadius: 20)
-                                    .fill(Color.medicareBlue.opacity(0.1))
+                                    .fill(colorScheme == .dark ? Color(.systemGray6) : Color.medicareBlue.opacity(0.1))
                             )
-                            .foregroundColor(.medicareBlue)
+                            .foregroundColor(colorScheme == .dark ? .white : .medicareBlue)
                         }
 
                         if showDatePicker {
@@ -145,7 +147,7 @@ struct DoctorsView: View {
                             .padding(12)
                             .background(
                                 RoundedRectangle(cornerRadius: 15)
-                                    .fill(Color(.systemBackground))
+                                    .fill(colorScheme == .dark ? Theme.dark.card : Theme.light.card)
                                     .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
                             )
                             .padding(.top, 8)
@@ -189,6 +191,7 @@ struct DoctorsView: View {
                         .foregroundColor(.gray)
                     Text("No doctors found")
                         .font(.headline)
+                        .foregroundColor(colorScheme == .dark ? .white : .primary)
                     Text("Try adjusting your search criteria")
                         .font(.subheadline)
                         .foregroundColor(.gray)
@@ -210,6 +213,7 @@ struct DoctorsView: View {
         }
         .navigationBarHidden(true)
         .navigationBarBackButtonHidden(true)
+        .background(colorScheme == .dark ? Theme.dark.background : Theme.light.background)
         .onAppear {
             doctorService.fetchDoctors()
         }
@@ -250,6 +254,7 @@ struct DoctorsView: View {
 // Enhanced Doctor Card
 struct EnhancedDoctorCard: View {
     let doctor: Doctor
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         HStack(spacing: 16) {
@@ -257,7 +262,10 @@ struct EnhancedDoctorCard: View {
             ZStack {
                 Circle()
                     .fill(LinearGradient(
-                        gradient: Gradient(colors: [Color.medicareBlue.opacity(0.2), Color.medicareBlue.opacity(0.1)]),
+                        gradient: Gradient(colors: [
+                            colorScheme == .dark ? Theme.dark.primary.opacity(0.2) : Color.medicareBlue.opacity(0.2),
+                            colorScheme == .dark ? Theme.dark.primary.opacity(0.1) : Color.medicareBlue.opacity(0.1)
+                        ]),
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ))
@@ -267,21 +275,22 @@ struct EnhancedDoctorCard: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 40, height: 40)
-                    .foregroundColor(.medicareBlue)
+                    .foregroundColor(colorScheme == .dark ? Theme.dark.primary : .medicareBlue)
             }
             
             // Info Section
             VStack(alignment: .leading, spacing: 6) {
                 Text(doctor.name)
                     .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(colorScheme == .dark ? .white : .primary)
                 
                 HStack {
                     Image(systemName: "stethoscope")
-                        .foregroundColor(.medicareBlue)
+                        .foregroundColor(colorScheme == .dark ? Theme.dark.primary : .medicareBlue)
                         .font(.system(size: 12))
                     Text(doctor.speciality)
                         .font(.system(size: 14))
-                        .foregroundColor(.medicareBlue)
+                        .foregroundColor(colorScheme == .dark ? Theme.dark.primary : .medicareBlue)
                 }
                 
                 if let gender = doctor.gender {
@@ -311,7 +320,7 @@ struct EnhancedDoctorCard: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.systemBackground))
+                .fill(colorScheme == .dark ? Theme.dark.card : Theme.light.card)
                 .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 4)
         )
         .overlay(

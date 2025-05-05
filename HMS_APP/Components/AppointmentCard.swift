@@ -6,7 +6,7 @@
 //
 import SwiftUI
 
-struct AppointmentCard: View {
+struct AppointmentCard1: View {
     let appointment: AppointmentData
     
     var statusColor: Color {

@@ -87,6 +87,7 @@ struct InitialSymptomsView: View {
     @ObservedObject var viewModel: SymptomCheckerViewModel
     @State private var searchText = ""
     @State private var description = ""
+    @State private var showValidationAlert = false
     
     var filteredSymptoms: [String] {
         if searchText.isEmpty {
@@ -96,10 +97,14 @@ struct InitialSymptomsView: View {
         }
     }
     
+    var isValidInput: Bool {
+        !viewModel.selectedSymptoms.isEmpty || description.count >= 10
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             Text("What symptoms are you experiencing?")
-                .font(.title3)
+                .font(.system(size: 24, weight: .bold))
                 .padding(.horizontal)
             
             SearchBar(text: $searchText)
@@ -124,45 +129,67 @@ struct InitialSymptomsView: View {
                 .padding(.horizontal)
             }
             
-            Text("Additional details:")
-                .font(.headline)
-                .padding(.horizontal)
-            
-            TextField("Describe your symptoms in detail (optional)", text: $description, axis: .vertical)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .frame(height: 100)
-                .padding(.horizontal)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Additional details:")
+                    .font(.system(size: 18, weight: .semibold))
+                    .padding(.horizontal)
+                
+                TextField("Describe your symptoms in detail (minimum 10 characters)", text: $description, axis: .vertical)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .frame(height: 100)
+                    .padding(.horizontal)
+                
+                if !description.isEmpty && description.count < 10 {
+                    Text("Please provide at least 10 characters")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .padding(.horizontal)
+                }
+            }
             
             Button(action: {
-                let symptoms = Array(viewModel.selectedSymptoms)
-                viewModel.initialSymptoms = InitialSymptoms(
-                    symptoms: symptoms,
-                    description: description.isEmpty ? nil : description
-                )
-                Task {
-                    await viewModel.generateQuestions(
+                if isValidInput {
+                    let symptoms = Array(viewModel.selectedSymptoms)
+                    viewModel.initialSymptoms = InitialSymptoms(
                         symptoms: symptoms,
                         description: description.isEmpty ? nil : description
                     )
+                    Task {
+                        await viewModel.generateQuestions(
+                            symptoms: symptoms,
+                            description: description.isEmpty ? nil : description
+                        )
+                    }
+                } else {
+                    showValidationAlert = true
                 }
             }) {
                 Text("Continue")
+                    .font(.system(size: 18, weight: .semibold))
                     .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(viewModel.selectedSymptoms.isEmpty && description.isEmpty ? Color.gray : Color.blue)
+                    .padding(.vertical, 16)
+                    .background(isValidInput ? Color.blue : Color.gray)
                     .foregroundColor(.white)
                     .clipShape(Capsule())
             }
-            .disabled(viewModel.selectedSymptoms.isEmpty && description.isEmpty)
+            .disabled(!isValidInput)
             .padding(.horizontal)
+            .alert(isPresented: $showValidationAlert) {
+                Alert(
+                    title: Text("Invalid Input"),
+                    message: Text("Please either select symptoms or provide a detailed description (minimum 10 characters)."),
+                    dismissButton: .default(Text("OK"))
+                )
+            }
         }
     }
 }
 
 struct QuestionnaireView: View {
     @ObservedObject var viewModel: SymptomCheckerViewModel
-    @State private var answer: String = ""
-    @State private var painLevel: Int = 5
+    @State private var answer = ""
+    @State private var painLevel = 5
+    @State private var showValidationAlert = false
     
     var currentQuestion: Question {
         guard viewModel.currentQuestionIndex < viewModel.questions.count else {
@@ -178,11 +205,18 @@ struct QuestionnaireView: View {
                currentQuestion.type == .singleChoice
     }
     
+    var isValidAnswer: Bool {
+        switch currentQuestion.type {
+        case .text:
+            return answer.count >= 3
+        case .boolean, .singleChoice, .multipleChoice:
+            return true
+        }
+    }
+    
     var progressValue: Double {
         guard !viewModel.questions.isEmpty else { return 0 }
-        let value = Double(min(viewModel.currentQuestionIndex + 1, viewModel.questions.count))
-        let total = Double(max(1, viewModel.questions.count))
-        return min(value, total) / total
+        return Double(min(viewModel.currentQuestionIndex + 1, viewModel.questions.count)) / Double(max(1, viewModel.questions.count))
     }
     
     var body: some View {
@@ -193,136 +227,176 @@ struct QuestionnaireView: View {
                 .padding()
             
             Text(currentQuestion.text)
-                .font(.title3)
+                .font(.system(size: 20, weight: .bold))
                 .padding(.horizontal)
                 .multilineTextAlignment(.center)
             
             if isPainScaleQuestion {
-                VStack(spacing: 20) {
-                    Text("Pain Level: \(painLevel)")
-                        .font(.headline)
-                    
-                    Text(painLevelDescription(for: painLevel))
-                        .foregroundColor(painLevelColor(for: painLevel))
-                    
-                    Slider(value: Binding(
-                        get: { Double(painLevel) },
-                        set: { painLevel = Int($0) }
-                    ), in: 0...10, step: 1)
-                    .padding(.horizontal)
-                    .accentColor(painLevelColor(for: painLevel))
-                    
-                    HStack {
-                        Text("0").font(.caption)
-                        Spacer()
-                        Text("5").font(.caption)
-                        Spacer()
-                        Text("10").font(.caption)
-                    }
-                    .padding(.horizontal)
-                    
-                    Text(painLevelExplanation(for: painLevel))
-                        .font(.caption)
-                        .padding(.horizontal)
-                        .multilineTextAlignment(.center)
-                    
-                    Button(action: {
-                        viewModel.questions[viewModel.currentQuestionIndex].answer = "\(painLevel)"
-                        viewModel.nextQuestion()
-                    }) {
-                        Text("Continue")
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.blue)
-                            .foregroundColor(.white)
-                            .clipShape(Capsule())
-                    }
-                    .padding(.horizontal)
-                }
+                painScaleView
             } else {
                 switch currentQuestion.type {
                 case .multipleChoice, .singleChoice:
-                    VStack(spacing: 12) {
-                        ForEach(currentQuestion.options ?? [], id: \.self) { option in
-                            Button(action: {
-                                viewModel.questions[viewModel.currentQuestionIndex].answer = option
-                                viewModel.nextQuestion()
-                            }) {
-                                Text(option)
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .stroke(Color.blue, lineWidth: 1)
-                                    )
-                            }
-                        }
-                    }
-                    .padding(.horizontal)
-                    
+                    optionsView
                 case .boolean:
-                    HStack(spacing: 20) {
-                        ForEach(["Yes", "No"], id: \.self) { option in
-                            Button(action: {
-                                viewModel.questions[viewModel.currentQuestionIndex].answer = option
-                                viewModel.nextQuestion()
-                            }) {
-                                Text(option)
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .stroke(Color.blue, lineWidth: 1)
-                                    )
-                            }
-                        }
-                    }
-                    .padding(.horizontal)
-                    
+                    booleanView
                 case .text:
-                    VStack {
-                        TextField("Enter your answer", text: $answer)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
-                            .padding(.horizontal)
-                        
-                        Button(action: {
-                            viewModel.questions[viewModel.currentQuestionIndex].answer = answer
-                            answer = ""
-                            viewModel.nextQuestion()
-                        }) {
-                            Text("Continue")
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.blue)
-                                .foregroundColor(.white)
-                                .clipShape(Capsule())
-                        }
-                        .disabled(answer.isEmpty)
-                        .padding(.horizontal)
-                    }
-                    
-                default:
-                    Text("Unsupported question type")
-                        .foregroundColor(.red)
-                        .padding()
+                    textInputView
                 }
             }
             
             Spacer()
             
-            // Navigation buttons
+            navigationButtons
+        }
+    }
+    
+    private var painScaleView: some View {
+        VStack(spacing: 20) {
+            Text("Pain Level: \(painLevel)")
+                .font(.system(size: 18, weight: .semibold))
+            
+            Text(painLevelDescription(for: painLevel))
+                .foregroundColor(painLevelColor(for: painLevel))
+                .font(.system(size: 16))
+            
+            Slider(value: Binding(
+                get: { Double(painLevel) },
+                set: { painLevel = Int($0) }
+            ), in: 0...10, step: 1)
+            .padding(.horizontal)
+            .accentColor(painLevelColor(for: painLevel))
+            
             HStack {
-                if viewModel.currentQuestionIndex > 0 {
-                    Button("Back") {
-                        viewModel.previousQuestion()
-                    }
-                    .padding()
-                }
-                
+                Text("No Pain").font(.caption)
                 Spacer()
+                Text("Severe").font(.caption)
+                Spacer()
+                Text("Worst").font(.caption)
             }
             .padding(.horizontal)
+            
+            Text(painLevelExplanation(for: painLevel))
+                .font(.caption)
+                .padding(.horizontal)
+                .multilineTextAlignment(.center)
+            
+            continueButton
         }
+    }
+    
+    private var optionsView: some View {
+        VStack(spacing: 12) {
+            ForEach(currentQuestion.options ?? [], id: \.self) { option in
+                Button(action: {
+                    viewModel.questions[viewModel.currentQuestionIndex].answer = option
+                    viewModel.nextQuestion()
+                }) {
+                    Text(option)
+                        .font(.system(size: 16, weight: .medium))
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color.blue, lineWidth: 1.5)
+                        )
+                }
+                .foregroundColor(.primary)
+            }
+        }
+        .padding(.horizontal)
+    }
+    
+    private var booleanView: some View {
+        HStack(spacing: 20) {
+            ForEach(["Yes", "No"], id: \.self) { option in
+                Button(action: {
+                    viewModel.questions[viewModel.currentQuestionIndex].answer = option
+                    viewModel.nextQuestion()
+                }) {
+                    Text(option)
+                        .font(.system(size: 16, weight: .medium))
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color.blue, lineWidth: 1.5)
+                        )
+                }
+                .foregroundColor(.primary)
+            }
+        }
+        .padding(.horizontal)
+    }
+    
+    private var textInputView: some View {
+        VStack(spacing: 12) {
+            TextField("Enter your answer (minimum 3 characters)", text: $answer)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .padding(.horizontal)
+            
+            if !answer.isEmpty && answer.count < 3 {
+                Text("Please provide at least 3 characters")
+                    .font(.caption)
+                    .foregroundColor(.red)
+                    .padding(.horizontal)
+            }
+            
+            continueButton
+        }
+    }
+    
+    private var continueButton: some View {
+        Button(action: {
+            if isValidAnswer {
+                if isPainScaleQuestion {
+                    viewModel.questions[viewModel.currentQuestionIndex].answer = "\(painLevel)"
+                } else {
+                    viewModel.questions[viewModel.currentQuestionIndex].answer = answer
+                }
+                viewModel.nextQuestion()
+                answer = ""
+            } else {
+                showValidationAlert = true
+            }
+        }) {
+            Text("Continue")
+                .font(.system(size: 18, weight: .semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(isValidAnswer ? Color.blue : Color.gray)
+                .foregroundColor(.white)
+                .clipShape(Capsule())
+        }
+        .disabled(!isValidAnswer)
+        .padding(.horizontal)
+        .alert(isPresented: $showValidationAlert) {
+            Alert(
+                title: Text("Invalid Input"),
+                message: Text("Please provide a valid answer."),
+                dismissButton: .default(Text("OK"))
+            )
+        }
+    }
+    
+    private var navigationButtons: some View {
+        HStack {
+            if viewModel.currentQuestionIndex > 0 {
+                Button(action: {
+                    viewModel.previousQuestion()
+                    answer = ""
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "chevron.left")
+                        Text("Back")
+                    }
+                    .foregroundColor(.blue)
+                }
+                .padding()
+            }
+            
+            Spacer()
+        }
+        .padding(.horizontal)
     }
     
     func painLevelColor(for level: Int) -> Color {
