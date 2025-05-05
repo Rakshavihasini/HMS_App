@@ -16,7 +16,6 @@
 		35B5495E2DC2A38700C74C0F /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 35B5495D2DC2A38700C74C0F /* FirebaseFirestore */; };
 		35B54C762DC47FB600C74C0F /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 35B54C752DC47FB600C74C0F /* FirebaseStorage */; };
 		35B54E772DC48C2200C74C0F /* FirebaseVertexAI in Frameworks */ = {isa = PBXBuildFile; productRef = 35B54E762DC48C2200C74C0F /* FirebaseVertexAI */; };
-		35B55D7E2DC6AD5000C74C0F /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 35B55D7D2DC6AD5000C74C0F /* MarkdownUI */; };
 		39BB66332DC5EE4C00048716 /* FirebaseStorageCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = 39BB66322DC5EE4C00048716 /* FirebaseStorageCombine-Community */; };
 		7802C7BF2DC29FE80071A2FF /* Appwrite in Frameworks */ = {isa = PBXBuildFile; productRef = 7802C7BE2DC29FE80071A2FF /* Appwrite */; };
 /* End PBXBuildFile section */
@@ -41,7 +40,6 @@
 				39BB66332DC5EE4C00048716 /* FirebaseStorageCombine-Community in Frameworks */,
 				35B549512DC2A37100C74C0F /* FirebaseAnalytics in Frameworks */,
 				35B549532DC2A37100C74C0F /* FirebaseAnalyticsOnDeviceConversion in Frameworks */,
-				35B55D7E2DC6AD5000C74C0F /* MarkdownUI in Frameworks */,
 				35B54C762DC47FB600C74C0F /* FirebaseStorage in Frameworks */,
 				7802C7BF2DC29FE80071A2FF /* Appwrite in Frameworks */,
 				35B549572DC2A37100C74C0F /* FirebaseAppCheck in Frameworks */,
@@ -111,7 +109,6 @@
 				35B54C752DC47FB600C74C0F /* FirebaseStorage */,
 				35B54E762DC48C2200C74C0F /* FirebaseVertexAI */,
 				39BB66322DC5EE4C00048716 /* FirebaseStorageCombine-Community */,
-				35B55D7D2DC6AD5000C74C0F /* MarkdownUI */,
 			);
 			productName = HMS_APP;
 			productReference = 7802C7AF2DC29F500071A2FF /* HMS_APP.app */;
@@ -144,7 +141,6 @@
 			packageReferences = (
 				7802C7BD2DC29FE80071A2FF /* XCRemoteSwiftPackageReference "sdk-for-swift" */,
 				35B5494F2DC2A37100C74C0F /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
-				35B55D7C2DC6AD5000C74C0F /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 7802C7B02DC29F500071A2FF /* Products */;
@@ -388,14 +384,6 @@
 				minimumVersion = 11.12.0;
 			};
 		};
-		35B55D7C2DC6AD5000C74C0F /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/gonzalezreal/swift-markdown-ui";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.4.1;
-			};
-		};
 		7802C7BD2DC29FE80071A2FF /* XCRemoteSwiftPackageReference "sdk-for-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/appwrite/sdk-for-swift";
@@ -451,11 +439,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 35B5494F2DC2A37100C74C0F /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseVertexAI;
-		};
-		35B55D7D2DC6AD5000C74C0F /* MarkdownUI */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 35B55D7C2DC6AD5000C74C0F /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;
-			productName = MarkdownUI;
 		};
 		39BB66322DC5EE4C00048716 /* FirebaseStorageCombine-Community */ = {
 			isa = XCSwiftPackageProductDependency;
