@@ -2,6 +2,7 @@ import SwiftUI
 import FirebaseStorage
 import UniformTypeIdentifiers
 
+
 struct PatientDocumentsView: View {
     // MARK: - Properties
     
@@ -23,6 +24,8 @@ struct PatientDocumentsView: View {
     @State private var showingUploadProgress: Bool = false
     @State private var showingDeleteConfirmation: Bool = false
     @State private var documentToDelete: PatientDocument? = nil
+    @State private var showingMedicalRecordsChat: Bool = false
+    @State private var selectedDocumentURL: URL? = nil
     
     // MARK: - Body
     
@@ -43,11 +46,13 @@ struct PatientDocumentsView: View {
                     .transition(.opacity)
             }
             
-            // Upload FAB
+            // Only keep the upload FAB, remove chat button
             VStack {
                 Spacer()
                 HStack {
                     Spacer()
+                    
+                    // Upload button
                     Button(action: {
                         showingDocumentPicker = true
                     }) {
@@ -93,6 +98,10 @@ struct PatientDocumentsView: View {
                     uploadDocuments(urls: urls)
                 }
             }
+        }
+        // Update the sheet presentation for MedicalRecordsChat
+        .sheet(isPresented: $showingMedicalRecordsChat) {
+            MedicalRecordsChatView(documentURL: selectedDocumentURL)
         }
         .alert(isPresented: $showingDeleteConfirmation) {
             Alert(
@@ -156,45 +165,98 @@ struct PatientDocumentsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
-    /// Document list view
+    /// Document list view with chat cue
     private func documentListView() -> some View {
-        List {
-            ForEach(documents) { document in
-                Button(action: {
-                    selectedDocument = document
-                    showingDocumentViewer = true
-                }) {
-                    HStack {
-                        Image(systemName: documentTypeIcon(for: document.documentType))
-                            .foregroundColor(.blue)
+        VStack {
+            // Add a subtle chat cue at the top
+            HStack {
+                Image(systemName: "lightbulb.fill")
+                    .foregroundColor(.yellow)
+                Text("Tip: Long-press on a document to chat about its contents")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+            .background(Color.yellow.opacity(0.1))
+            
+            List {
+                ForEach(documents) { document in
+                    Button(action: {
+                        selectedDocument = document
+                        showingDocumentViewer = true
                         
-                        VStack(alignment: .leading) {
-                            Text(document.name)
-                                .fontWeight(.medium)
-                            Text(document.documentType)
-                                .font(.caption)
+                        // Get the URL for the document to potentially use with chat
+                        getDocumentURL(for: document)
+                    }) {
+                        HStack {
+                            Image(systemName: documentTypeIcon(for: document.documentType))
+                                .foregroundColor(.blue)
+                            
+                            VStack(alignment: .leading) {
+                                Text(document.name)
+                                    .fontWeight(.medium)
+                                Text(document.documentType)
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
+                            
+                            Spacer()
+                            
+                            Image(systemName: "chevron.right")
                                 .foregroundColor(.gray)
                         }
-                        
-                        Spacer()
-                        
-                        Image(systemName: "chevron.right")
-                            .foregroundColor(.gray)
+                        .padding(.vertical, 4)
                     }
-                    .padding(.vertical, 4)
-                }
-                .swipeActions(edge: .trailing) {
-                    Button(role: .destructive) {
-                        documentToDelete = document
-                        showingDeleteConfirmation = true
-                    } label: {
-                        Label("Delete", systemImage: "trash")
+                    .swipeActions(edge: .trailing) {
+                        Button(role: .destructive) {
+                            documentToDelete = document
+                            showingDeleteConfirmation = true
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                        
+                        // Add a swipe action for chat as well
+                        Button {
+                            selectedDocument = document
+                            getDocumentURL(for: document) { url in
+                                if let url = url {
+                                    print("Document URL obtained: \(url)") // Add debug print
+                                    self.selectedDocumentURL = url
+                                    self.showingMedicalRecordsChat = true
+                                } else {
+                                    errorMessage = "Could not load document for chat"
+                                    showingError = true
+                                }
+                            }
+                        } label: {
+                            Label("Chat", systemImage: "message.fill")
+                        }
+                        .tint(.blue)
+                    }
+                    .contextMenu {
+                        Button(action: {
+                            selectedDocument = document
+                            getDocumentURL(for: document) { url in
+                                if let url = url {
+                                    print("Document URL obtained: \(url)") // Add debug print
+                                    self.selectedDocumentURL = url
+                                    self.showingMedicalRecordsChat = true
+                                } else {
+                                    errorMessage = "Could not load document for chat"
+                                    showingError = true
+                                }
+                            }
+                        }) {
+                            Label("Chat about this document", systemImage: "message.fill")
+                        }
                     }
                 }
             }
-        }
-        .refreshable {
-            await refreshDocuments()
+            .refreshable {
+                await refreshDocuments()
+            }
         }
     }
     
@@ -225,6 +287,29 @@ struct PatientDocumentsView: View {
         case "PDF": return "doc.text"
         case "Image": return "photo"
         default: return "doc"
+        }
+    }
+    
+    // Get the URL for a document
+    private func getDocumentURL(for document: PatientDocument, completion: ((URL?) -> Void)? = nil) {
+        let storage = Storage.storage()
+        let documentRef = storage.reference(withPath: document.path)
+        
+        documentRef.downloadURL { url, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("Error getting document URL: \(error.localizedDescription)")
+                    completion?(nil)
+                    return
+                }
+                
+                if let url = url {
+                    self.selectedDocumentURL = url
+                    completion?(url)
+                } else {
+                    completion?(nil)
+                }
+            }
         }
     }
     
@@ -345,63 +430,62 @@ struct PatientDocumentsView: View {
     }
     
     /// Helper method to upload documents sequentially
-    /// Helper method to upload documents sequentially
     private func uploadNextDocument(urls: [URL], index: Int, folderPath: String, storage: Storage, completion: @escaping (Bool) -> Void) {
-    // Check if we've processed all documents
-    if index >= urls.count {
-        completion(true)
-        return
-    }
-    
-    let url = urls[index]
-    let filename = url.lastPathComponent
-    let storageRef = storage.reference().child("\(folderPath)/\(filename)")
-    
-    // Create a file metadata object
-    let metadata = StorageMetadata()
-    
-    // Set content type based on file extension
-    let fileExtension = url.pathExtension.lowercased()
-    if fileExtension == "pdf" {
-        metadata.contentType = "application/pdf"
-    } else if ["jpg", "jpeg"].contains(fileExtension) {
-        metadata.contentType = "image/jpeg"
-    } else if fileExtension == "png" {
-        metadata.contentType = "image/png"
-    } else if fileExtension == "gif" {
-        metadata.contentType = "image/gif"
-    }
-    
-    // Upload the file - fix the ambiguous method call
-    let uploadTask: StorageUploadTask = storageRef.putFile(from: url, metadata: metadata)
-    
-    // Monitor upload progress
-    uploadTask.observe(StorageTaskStatus.progress) { snapshot in
-        guard let progress = snapshot.progress else { return }
-        let individualProgress = Double(progress.completedUnitCount) / Double(progress.totalUnitCount)
+        // Check if we've processed all documents
+        if index >= urls.count {
+            completion(true)
+            return
+        }
         
-        // Calculate overall progress (current file progress + completed files)
-        let overallProgress = (Double(index) + individualProgress) / Double(urls.count)
+        let url = urls[index]
+        let filename = url.lastPathComponent
+        let storageRef = storage.reference().child("\(folderPath)/\(filename)")
         
-        DispatchQueue.main.async {
-            uploadProgress = overallProgress
+        // Create a file metadata object
+        let metadata = StorageMetadata()
+        
+        // Set content type based on file extension
+        let fileExtension = url.pathExtension.lowercased()
+        if fileExtension == "pdf" {
+            metadata.contentType = "application/pdf"
+        } else if ["jpg", "jpeg"].contains(fileExtension) {
+            metadata.contentType = "image/jpeg"
+        } else if fileExtension == "png" {
+            metadata.contentType = "image/png"
+        } else if fileExtension == "gif" {
+            metadata.contentType = "image/gif"
+        }
+        
+        // Upload the file - fix the ambiguous method call
+        let uploadTask: StorageUploadTask = storageRef.putFile(from: url, metadata: metadata)
+        
+        // Monitor upload progress
+        uploadTask.observe(StorageTaskStatus.progress) { snapshot in
+            guard let progress = snapshot.progress else { return }
+            let individualProgress = Double(progress.completedUnitCount) / Double(progress.totalUnitCount)
+            
+            // Calculate overall progress (current file progress + completed files)
+            let overallProgress = (Double(index) + individualProgress) / Double(urls.count)
+            
+            DispatchQueue.main.async {
+                uploadProgress = overallProgress
+            }
+        }
+        
+        // Handle upload completion
+        uploadTask.observe(StorageTaskStatus.success) { _ in
+            // Move to the next document
+            uploadNextDocument(urls: urls, index: index + 1, folderPath: folderPath, storage: storage, completion: completion)
+        }
+        
+        uploadTask.observe(StorageTaskStatus.failure) { snapshot in
+            if let error = snapshot.error {
+                print("Error uploading document: \(error.localizedDescription)")
+            }
+            // Continue with next document even if this one failed
+            uploadNextDocument(urls: urls, index: index + 1, folderPath: folderPath, storage: storage, completion: completion)
         }
     }
-    
-    // Handle upload completion
-    uploadTask.observe(StorageTaskStatus.success) { _ in
-        // Move to the next document
-        uploadNextDocument(urls: urls, index: index + 1, folderPath: folderPath, storage: storage, completion: completion)
-    }
-    
-    uploadTask.observe(StorageTaskStatus.failure) { snapshot in
-        if let error = snapshot.error {
-            print("Error uploading document: \(error.localizedDescription)")
-        }
-        // Continue with next document even if this one failed
-        uploadNextDocument(urls: urls, index: index + 1, folderPath: folderPath, storage: storage, completion: completion)
-    }
-}
     
     /// Delete a document from Firebase Storage
     private func deleteDocument(document: PatientDocument) {

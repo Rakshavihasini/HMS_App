@@ -19,17 +19,27 @@ struct MedicalRecordsChatView: View {
     // Service for handling medical info queries
     private let medicalInfoService = MedicalInfoService()
     
+    // Initialize with optional document URL
+    init(documentURL: URL? = nil) {
+        print("MedicalRecordsChatView initialized with URL: \(String(describing: documentURL))") // Add debug print
+        _selectedDocument = State(initialValue: documentURL)
+        
+        // If document is provided, set the title and processing state
+        if let url = documentURL {
+            _documentTitle = State(initialValue: url.lastPathComponent)
+            _isProcessingDocument = State(initialValue: true)
+        } else {
+            _documentTitle = State(initialValue: "Medical Records Chat")
+        }
+    }
+    
     var body: some View {
         VStack(spacing: 0) {
             // Header
             headerView
             
-            // Document preview or chat
-            if selectedDocument == nil {
-                emptyStateView
-            } else {
-                chatView
-            }
+            // Always show chat view
+            chatView
         }
         .sheet(isPresented: $showDocumentPicker) {
             PatientDocumentPicker { url in
@@ -38,6 +48,29 @@ struct MedicalRecordsChatView: View {
         }
         .alert(isPresented: Binding<Bool>(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Alert(title: Text("Error"), message: Text(errorMessage ?? "Unknown error"), dismissButton: .default(Text("OK")))
+        }
+        .onAppear {
+            // Process the document if one was provided in init
+            if let url = selectedDocument {
+                handleSelectedDocument(url: url)
+            } else {
+                // Add a welcome message when no document is selected
+                chatMessages.append(ChatMessage(
+                    id: UUID(),
+                    content: "Welcome to Medical Records Chat! Upload a document using the button below or ask a general health question.",
+                    isUser: false,
+                    suggestedQuestions: ["What are common health screenings I should get?", "How can I maintain a healthy lifestyle?", "What information should I keep in my medical records?"]
+                ))
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: {
+                    showDocumentPicker = true
+                }) {
+                    Image(systemName: "doc.badge.plus")
+                }
+            }
         }
     }
     
@@ -51,6 +84,14 @@ struct MedicalRecordsChatView: View {
                     selectedDocument = nil
                     documentContent = ""
                     chatMessages = []
+                    
+                    // Add welcome message
+                    chatMessages.append(ChatMessage(
+                        id: UUID(),
+                        content: "Welcome to Medical Records Chat! Upload a document using the button below or ask a general health question.",
+                        isUser: false,
+                        suggestedQuestions: ["What are common health screenings I should get?", "How can I maintain a healthy lifestyle?", "What information should I keep in my medical records?"]
+                    ))
                 }) {
                     HStack {
                         Image(systemName: "arrow.left")
@@ -81,38 +122,7 @@ struct MedicalRecordsChatView: View {
         .background(Color.medicareBlue.opacity(0.1))
     }
     
-    private var emptyStateView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "doc.text.magnifyingglass")
-                .font(.system(size: 70))
-                .foregroundColor(.medicareBlue.opacity(0.7))
-            
-            Text("Chat with your Medical Records")
-                .font(.title2)
-                .fontWeight(.bold)
-            
-            Text("Upload a medical record to get personalized health insights and advice")
-                .font(.body)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-                .foregroundColor(.secondary)
-            
-            Button(action: {
-                showDocumentPicker = true
-            }) {
-                HStack {
-                    Image(systemName: "plus")
-                    Text("Upload Medical Record")
-                }
-                .padding()
-                .background(Color.medicareBlue)
-                .foregroundColor(.white)
-                .cornerRadius(10)
-            }
-            .padding(.top, 20)
-        }
-        .padding()
-    }
+    // Remove emptyStateView and keep only chatView
     
     private var chatView: some View {
         VStack(spacing: 0) {
@@ -134,9 +144,20 @@ struct MedicalRecordsChatView: View {
                 .padding()
             }
             
-            // Input field
+            // Input field with upload button
             HStack {
-                TextField("Ask about your medical record...", text: $currentMessage)
+                if selectedDocument == nil {
+                    Button(action: {
+                        showDocumentPicker = true
+                    }) {
+                        Image(systemName: "doc.badge.plus")
+                            .font(.system(size: 22))
+                            .foregroundColor(.medicareBlue)
+                    }
+                    .padding(.trailing, 4)
+                }
+                
+                TextField("Ask a question...", text: $currentMessage)
                     .padding(12)
                     .background(Color(.systemGray6))
                     .cornerRadius(20)

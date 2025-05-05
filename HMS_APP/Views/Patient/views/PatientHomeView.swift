@@ -5,11 +5,14 @@
 //  Created by s1834 on 22/04/25.
 //
 
+
+
 import SwiftUI
 
 struct PatientHomeView: View {
     @EnvironmentObject var authManager: AuthManager
     @StateObject private var appointmentManager = AppointmentManager()
+    @State private var userId = UserDefaults.standard.string(forKey: "userId")
     
     var body: some View {
         NavigationStack {
@@ -24,7 +27,7 @@ struct PatientHomeView: View {
                         Label("Doctors", systemImage: "stethoscope")
                     }
                 
-                MedicalRecordsView()
+                PatientDocumentsView(patientId:userId!)
                     .tabItem {
                         Label("Records", systemImage: "folder.fill")
                     }
