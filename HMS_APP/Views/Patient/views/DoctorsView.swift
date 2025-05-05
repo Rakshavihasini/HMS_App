@@ -327,6 +327,7 @@ struct DoctorDetailView: View {
     @State private var currentPatient: Patient?
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var navigateToHome = false
     
     private let db = Firestore.firestore()
     private let dbName = "hms4"
@@ -339,82 +340,105 @@ struct DoctorDetailView: View {
                     .scaleEffect(1.5)
                     .padding()
             } else {
-                VStack(spacing: 20) {
-                    Image(systemName: "person.circle.fill")
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 120, height: 120)
-                        .foregroundColor(.medicareBlue)
-                        .clipShape(Circle())
-                        .shadow(radius: 5)
-
-                    Text(doctor.name)
-                        .font(.title)
-                        .bold()
-                    
-                    Text(doctor.speciality)
+                VStack{
+                    HStack{
+                        Button(action: {
+                            navigateToHome = true
+                        }) {
+                            Image(systemName: "chevron.left")
+                                .foregroundColor(.black)
+                                .imageScale(.large)
+                                .padding(8)
+                                .clipShape(Circle())
+                        }
+                        Spacer()
+                    }
+                    VStack(spacing: 20) {
+                        Image(systemName: "person.circle.fill")
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 120, height: 120)
+                            .foregroundColor(.medicareBlue)
+                            .clipShape(Circle())
+                            .shadow(radius: 5)
+                        
+                        Text(doctor.name)
+                            .font(.title)
+                            .bold()
+                        
+                        Text(doctor.speciality)
+                            .font(.headline)
+                            .foregroundColor(.medicareBlue)
+                        
+                        if let age = doctor.age {
+                            HStack(spacing: 10) {
+                                Label("Age: \(age)", systemImage: "person")
+                                if let gender = doctor.gender {
+                                    Label(gender, systemImage: "figure.stand")
+                                }
+                            }
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                        }
+                        
+                        // License details if available
+                        if let license = doctor.licenseDetails {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("License Information")
+                                    .font(.headline)
+                                    .padding(.bottom, 4)
+                                
+                                if let council = license.councilName {
+                                    Text("Council: \(council)")
+                                        .font(.subheadline)
+                                }
+                                
+                                if let regNum = license.registrationNumber {
+                                    Text("Registration #: \(regNum)")
+                                        .font(.subheadline)
+                                }
+                                
+                                if let year = license.yearOfRegistration {
+                                    Text("Year of Registration: \(year)")
+                                        .font(.subheadline)
+                                }
+                                
+                                if let status = license.verificationStatus {
+                                    Text("Status: \(status)")
+                                        .font(.subheadline)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
+                        }
+                        
+                        Button("Book Appointment") {
+                            fetchPatientAndBook()
+                        }
                         .font(.headline)
-                        .foregroundColor(.medicareBlue)
-
-                    if let age = doctor.age {
-                        HStack(spacing: 10) {
-                            Label("Age: \(age)", systemImage: "person")
-                            if let gender = doctor.gender {
-                                Label(gender, systemImage: "figure.stand")
-                            }
-                        }
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
-                    }
-
-                    // License details if available
-                    if let license = doctor.licenseDetails {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("License Information")
-                                .font(.headline)
-                                .padding(.bottom, 4)
-                            
-                            if let council = license.councilName {
-                                Text("Council: \(council)")
-                                    .font(.subheadline)
-                            }
-                            
-                            if let regNum = license.registrationNumber {
-                                Text("Registration #: \(regNum)")
-                                    .font(.subheadline)
-                            }
-                            
-                            if let year = license.yearOfRegistration {
-                                Text("Year of Registration: \(year)")
-                                    .font(.subheadline)
-                            }
-                            
-                            if let status = license.verificationStatus {
-                                Text("Status: \(status)")
-                                    .font(.subheadline)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color(.systemGray6))
+                        .background(Color.medicareBlue)
+                        .foregroundColor(.white)
                         .cornerRadius(12)
+                        .padding(.horizontal)
                     }
-
-                    Button("Book Appointment") {
-                        fetchPatientAndBook()
-                    }
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.medicareBlue)
-                    .foregroundColor(.white)
-                    .cornerRadius(12)
-                    .padding(.horizontal)
                 }
-                .padding()
             }
         }
-        .navigationTitle(doctor.name)
+        .background(
+            NavigationLink(
+                destination: PatientHomeView(),
+                isActive: $navigateToHome
+            ) {
+                EmptyView()
+            }
+            .hidden()
+        )
+        .navigationBarBackButtonHidden(true)
         .sheet(isPresented: $showingBookAppointment) {
             if let patient = currentPatient {
                 BookAppointmentView(doctor: doctor, patient: patient)
