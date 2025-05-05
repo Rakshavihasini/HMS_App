@@ -212,7 +212,7 @@ struct ConsultationNotesView: View {
                             }) {
                                 HStack {
                                     Image(systemName: "doc.text")
-                                    Text(isGeneratingPDF ? "Processing..." : "Generate PDF")
+                                    Text(isGeneratingPDF ? "Processing..." : "Complete Consultation")
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding()

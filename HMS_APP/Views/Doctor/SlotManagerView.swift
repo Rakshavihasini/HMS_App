@@ -89,6 +89,7 @@ struct CalendarView: View {
                     let isSelected = calendar.isDate(selectedDate, inSameDayAs: date)
                     let isOnLeave = fullDayLeaves.contains { calendar.isDate($0, inSameDayAs: date) }
                     let isToday = calendar.isDateInToday(date)
+                    let isPastDate = date < calendar.startOfDay(for: Date())
                     
                     Button(action: {
                         selectedDate = date
@@ -108,8 +109,9 @@ struct CalendarView: View {
                             
                             Text("\(calendar.component(.day, from: date))")
                                 .font(.system(size: 16, weight: isToday || isSelected ? .bold : .regular))
-                                .foregroundColor(isSelected || isOnLeave ? .white : (isToday ? .green : theme.text))
+                                .foregroundColor(isPastDate ? Color.gray : (isSelected || isOnLeave ? .white : (isToday ? .green : theme.text)))
                         }
+                        .opacity(isPastDate ? 0.6 : 1)
                     }
                 }
             }
