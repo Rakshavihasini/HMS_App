@@ -24,7 +24,9 @@ struct ConsultationCard: View {
                 Text(appointment.date ?? "")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(theme.primary)
-                
+                Text(appointment.time)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(theme.secondary)
                 Spacer()
                 
                 // Status Badge
