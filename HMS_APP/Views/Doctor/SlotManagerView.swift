@@ -356,6 +356,7 @@ struct DoctorSlotManagerView: View {
                 HStack(alignment: .center) {
                     Text("Manage Slots")
                         .font(.title)
+                        .fontWeight(.bold)
                         .foregroundColor(theme.text)
                 }
                 .padding(.horizontal)
