@@ -1,5 +1,5 @@
 {
-  "originHash" : "4ea7c231dd2f1a51d638a5937af79ed6558026c5f3831a8fa9d309865adfdddd",
+  "originHash" : "a0e96ce5ee48e16758b9b61dd1fa72eb38ce1f3b7a586473c92b452559340735",
   "pins" : [
     {
       "identity" : "abseil-cpp-binary",
@@ -31,7 +31,7 @@
     {
       "identity" : "firebase-ios-sdk",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/firebase/firebase-ios-sdk.git",
+      "location" : "https://github.com/firebase/firebase-ios-sdk",
       "state" : {
         "revision" : "fbd463894af94d90eb4d6a4e54080459a8179519",
         "version" : "11.12.0"
@@ -60,8 +60,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/google/GoogleUtilities.git",
       "state" : {
-        "revision" : "60da361632d0de02786f709bdc0c4df340f7613e",
-        "version" : "8.1.0"
+        "revision" : "53156c7ec267db846e6b64c9f4c4e31ba4cf75eb",
+        "version" : "8.0.2"
       }
     },
     {
@@ -128,12 +128,12 @@
       }
     },
     {
-      "identity" : "sdk-for-swift",
+      "identity" : "sdk-for-apple",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/appwrite/sdk-for-swift",
+      "location" : "https://github.com/appwrite/sdk-for-apple",
       "state" : {
-        "revision" : "b9559021eb2b925a48c265818c294a2fdc7b5aa1",
-        "version" : "9.0.0"
+        "revision" : "362d8b32c5e807ff31d3a95619d1f5ce83296d69",
+        "version" : "9.0.1"
       }
     },
     {
@@ -202,7 +202,7 @@
     {
       "identity" : "swift-markdown-ui",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/gonzalezreal/swift-markdown-ui.git",
+      "location" : "https://github.com/gonzalezreal/swift-markdown-ui",
       "state" : {
         "revision" : "5f613358148239d0292c0cef674a3c2314737f9e",
         "version" : "2.4.1"

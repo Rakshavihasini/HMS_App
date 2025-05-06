@@ -18,6 +18,26 @@ struct BookAppointmentView: View {
     @State private var showAllMorningSlots = false
     @State private var showAllAfternoonSlots = false
     @State private var shouldNavigateBack = false
+    @State private var showingPaymentSheet = false
+    
+    // Add consultationFee calculation based on doctor's speciality
+    private var consultationFee: Int {
+        switch doctor.speciality {
+        case "Cardiology":
+            return 1500
+        case "Neurology":
+            return 1800
+        case "Orthopedics":
+            return 1200
+        case "Pediatrics":
+            return 1000
+        default:
+            return 1000
+        }
+    }
+    
+    // Default appointment duration in minutes
+    private let appointmentDuration = 30
     
     // Add dateFormatter property
     private let dateFormatter: DateFormatter = {
@@ -318,7 +338,10 @@ struct BookAppointmentView: View {
         .background(colorScheme == .dark ? Color.black : Color(.systemGray6))
         .safeAreaInset(edge: .bottom) {
             VStack {
-                Button(action: bookAppointment) {
+                Button(action: {
+                    // Show payment sheet instead of directly booking appointment
+                    showingPaymentSheet = true
+                }) {
                     Text("Continue Booking")
                         .fontWeight(.semibold)
                         .foregroundColor(.white)
@@ -339,6 +362,22 @@ struct BookAppointmentView: View {
                 EmptyView()
             }
         )
+        .sheet(isPresented: $showingPaymentSheet) {
+            PaymentConfirmationView(
+                doctor: doctor,
+                date: selectedDate,
+                time: selectedTime,
+                reason: reason,
+                consultationFee: consultationFee,
+                onConfirm: {
+                    showingPaymentSheet = false
+                    bookAppointment()
+                },
+                onCancel: {
+                    showingPaymentSheet = false
+                }
+            )
+        }
         .alert(isPresented: $showingConfirmation) {
             Alert(
                 title: Text("Appointment Booked"),
