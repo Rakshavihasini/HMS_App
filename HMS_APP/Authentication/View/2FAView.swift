@@ -246,7 +246,7 @@ struct TwoFAView: View {
                 HospitalView()
             case "doctor":
                 // For new doctor signups, show license verification first
-                LicenseVerificationView()
+                NMCLicenseVerificationView()
             case "patient":
                 PatientHomeView()
             default:
