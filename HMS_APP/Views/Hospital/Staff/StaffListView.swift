@@ -33,7 +33,7 @@ struct StaffListView: View {
                 email: doctor.email,
                 dateOfBirth: doctor.dateOfBirth,
                 joinDate: nil,
-                educationalQualification: "MBBS", // Hardcoded MBBS for doctors
+                educationalQualification: doctor.speciality, // Use doctor's speciality instead of hardcoded MBBS
                 certificates: nil,
                 staffRole: "Doctor"
             )

@@ -1,10 +1,3 @@
-//
-//  DoctorProfileView.swift
-//  HMS_APP
-//
-//  Created by Rudra Pruthi on 02/05/25.
-//
-
 import SwiftUI
 
 struct DoctorProfileView: View {
@@ -66,14 +59,14 @@ struct DoctorProfileView: View {
                                 .fontWeight(.medium)
                         }
                     }
-//                    
+//
 //                    // Join date if available
 //                    if let joinTimestamp = userInfo["joinDate"] as? Double {
 //                        let date = Date(timeIntervalSince1970: joinTimestamp)
 //                        let formatter = DateFormatter()
 //                        formatter.dateStyle = .medium
 //                        let dateString = formatter.string(from: date)
-//                        
+//
 //                        Text("Joined: \(dateString)")
 //                            .foregroundColor(.gray)
 //                            .padding(.top, 4)

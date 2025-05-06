@@ -322,11 +322,33 @@ class SymptomCheckerViewModel: ObservableObject {
                 let createdAt = data["createdAt"] as? Timestamp
                 
                 // Parse schedules
-                var schedules: DoctorSchedules? = nil
-                if let schedulesData = data["schedules"] as? [String: Any] {
-                    let fullDayLeaves = schedulesData["fullDayLeaves"] as? [String: Int]
-                    let leaveTimeSlots = schedulesData["leaveTimeSlots"] as? [String: [String: Int]]
-                    schedules = DoctorSchedules(fullDayLeaves: fullDayLeaves, leaveTimeSlots: leaveTimeSlots)
+                var schedule: DoctorSchedules? = nil
+                if let scheduleData = data["schedule"] as? [String: Any] {
+                    print("DEBUG: Found schedule data for doctor \(id)")
+                    
+                    // Parse fullDayLeaves
+                    var fullDayLeaves: [String]? = nil
+                    if let fullDayLeavesData = scheduleData["fullDayLeaves"] as? [String] {
+                        fullDayLeaves = fullDayLeavesData
+                        print("DEBUG: Full day leaves from array: \(fullDayLeavesData)")
+                    } else if let fullDayLeavesMap = scheduleData["fullDayLeaves"] as? [String: Any] {
+                        // If it's stored as a map/dictionary
+                        fullDayLeaves = Array(fullDayLeavesMap.keys)
+                        print("DEBUG: Full day leaves from map: \(fullDayLeavesMap.keys)")
+                    }
+                    
+                    // Parse leaveTimeSlots
+                    var leaveTimeSlots: [String]? = nil
+                    if let leaveTimeSlotsData = scheduleData["leaveTimeSlots"] as? [String] {
+                        leaveTimeSlots = leaveTimeSlotsData
+                        print("DEBUG: Leave time slots from array: \(leaveTimeSlotsData)")
+                    } else if let leaveTimeSlotsMap = scheduleData["leaveTimeSlots"] as? [String: Any] {
+                        // If it's stored as a map/dictionary
+                        leaveTimeSlots = Array(leaveTimeSlotsMap.keys)
+                        print("DEBUG: Leave time slots from map: \(leaveTimeSlotsMap.keys)")
+                    }
+                    
+                    schedule = DoctorSchedules(fullDayLeaves: fullDayLeaves, leaveTimeSlots: leaveTimeSlots)
                 }
                 
                 // Parse licenseDetails
@@ -352,7 +374,7 @@ class SymptomCheckerViewModel: ObservableObject {
                     speciality: speciality,
                     database: database,
                     age: age,
-                    schedules: schedules,
+                    schedule: schedule,
                     appwriteUserId: appwriteUserId,
                     gender: gender,
                     licenseDetails: licenseDetails,
@@ -462,12 +484,12 @@ class SymptomCheckerViewModel: ObservableObject {
                     if let year = licenseDetails.yearOfRegistration { print("        Year: \(year)") }
                     if let verifiedAt = licenseDetails.verifiedAt { print("        Verified At: \(verifiedAt.dateValue())") }
                 }
-                if let schedules = doctor.schedules {
-                    print("     Schedules:")
-                    if let fullDayLeaves = schedules.fullDayLeaves {
+                if let schedule = doctor.schedule {
+                    print("     Schedule:")
+                    if let fullDayLeaves = schedule.fullDayLeaves {
                         print("        Full Day Leaves: \(fullDayLeaves)")
                     }
-                    if let leaveTimeSlots = schedules.leaveTimeSlots {
+                    if let leaveTimeSlots = schedule.leaveTimeSlots {
                         print("        Leave Time Slots: \(leaveTimeSlots)")
                     }
                 }
