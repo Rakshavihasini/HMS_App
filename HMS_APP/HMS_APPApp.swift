@@ -7,11 +7,17 @@
 
 import SwiftUI
 import FirebaseCore
+import FirebaseFirestore
 
 @main
 struct HMS_APPApp: App {
     init() {
         FirebaseApp.configure()
+        
+        // Check for appointments that need status updates
+        Task {
+            await AppointmentStatusService.shared.checkAndUpdateAppointmentStatuses()
+        }
     }
     @StateObject private var authManager = AuthManager()
     @StateObject private var doctorManager = DoctorManager()

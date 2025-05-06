@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Charts
+import FirebaseFirestore
 
 struct AdminDashboardView: View {
     @Binding var selectedTab: Int
@@ -79,6 +80,34 @@ struct AdminDashboardView: View {
                     // Staff Status Section
                     StaffStatusView()
                         .padding(.horizontal)
+                    
+                    // Payment Confirmations Section
+                    NavigationLink(destination: AdminAppointmentView()) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Payment Confirmations")
+                                    .font(.headline)
+                                    .foregroundColor(currentTheme.text)
+                                
+                                Text("Verify counter payments for appointments")
+                                    .font(.subheadline)
+                                    .foregroundColor(currentTheme.text.opacity(0.7))
+                            }
+                            
+                            Spacer()
+                            
+                            Image(systemName: "creditcard.circle.fill")
+                                .font(.system(size: 30))
+                                .foregroundColor(currentTheme.primary)
+                        }
+                        .padding()
+                        .background(currentTheme.card)
+                        .cornerRadius(12)
+                        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .padding(.horizontal)
+                    .padding(.bottom, 12)
                     
                     // Recent Notifications
 //                    RecentNotificationsView()

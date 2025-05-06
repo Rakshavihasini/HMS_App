@@ -69,7 +69,7 @@ struct AppointmentData: Identifiable, Codable {
         case inProgress = "IN_PROGRESS"
         case completed = "COMPLETED"
         case cancelled = "CANCELLED"
-        case noShow = "NO_SHOW"
+        case noShow = "WAITING"
         case rescheduled = "RESCHEDULED"
     }
     

@@ -19,6 +19,7 @@ struct BookAppointmentView: View {
     @State private var showingError = false
     @State private var errorMessage = ""
     @State private var isLoading = false
+    @State private var showingPaymentSheet = false
     
     // Default time slots that will be filtered based on doctor availability
     let defaultTimeSlots = ["09:00 AM", "09:30 AM", "10:00 AM",
@@ -31,6 +32,22 @@ struct BookAppointmentView: View {
     
     // Default appointment duration in minutes
     private let appointmentDuration = 30
+    
+    // Consultation fee based on doctor's speciality
+    private var consultationFee: Int {
+        switch doctor.speciality {
+        case "Cardiology":
+            return 1500
+        case "Neurology":
+            return 1800
+        case "Orthopedics":
+            return 1200
+        case "Pediatrics":
+            return 1000
+        default:
+            return 1000
+        }
+    }
     
     private let db = Firestore.firestore()
     private let dbName = "hms4"
@@ -74,22 +91,29 @@ struct BookAppointmentView: View {
                 }
                 
                 Section {
-                    Button(action: bookAppointment) {
-                        Text("Confirm Appointment")
+                    Button(action: {
+                        showingPaymentSheet = true
+                    }) {
+                        Text("Next")
                             .frame(maxWidth: .infinity)
                             .foregroundColor(.white)
                             .bold()
                     }
-                    .disabled(isLoading || availableTimeSlots.isEmpty)
+                    .disabled(isLoading || availableTimeSlots.isEmpty || reason.isEmpty)
                     .listRowBackground(Color.medicareBlue)
                 }
             }
             .navigationTitle("Book Appointment")
             .navigationBarTitleDisplayMode(.inline)
             .alert(isPresented: $showingConfirmation) {
-                Alert(
+                let paymentMethod = UserDefaults.standard.string(forKey: "selectedPaymentMethod") ?? ""
+                let isCounterPayment = paymentMethod == "counter"
+                
+                return Alert(
                     title: Text("Appointment Booked"),
-                    message: Text("Your appointment with \(doctor.name) on \(formattedDate()) at \(selectedTime) has been confirmed."),
+                    message: Text(isCounterPayment ? 
+                                 "Your appointment with \(doctor.name) on \(formattedDate()) at \(selectedTime) has been booked. Please note that your appointment will be confirmed after admin verification. If not confirmed, it will be marked as 'No Show'." :
+                                 "Your appointment with \(doctor.name) on \(formattedDate()) at \(selectedTime) has been confirmed."),
                     dismissButton: .default(Text("OK")) {
                         presentationMode.wrappedValue.dismiss()
                     }
@@ -102,6 +126,22 @@ struct BookAppointmentView: View {
             }
             .onAppear {
                 fetchAvailableTimeSlots()
+            }
+            .sheet(isPresented: $showingPaymentSheet) {
+                PaymentConfirmationView(
+                    doctor: doctor,
+                    date: selectedDate,
+                    time: selectedTime,
+                    reason: reason,
+                    consultationFee: consultationFee,
+                    onConfirm: {
+                        showingPaymentSheet = false
+                        bookAppointment()
+                    },
+                    onCancel: {
+                        showingPaymentSheet = false
+                    }
+                )
             }
         }
     }
@@ -208,6 +248,17 @@ struct BookAppointmentView: View {
         }
         
         // Create appointment data using the Appointment model structure
+        // Check if payment method is counter payment from PaymentConfirmationView
+        let paymentMethod = UserDefaults.standard.string(forKey: "selectedPaymentMethod") ?? ""
+        let paymentStatus = paymentMethod == "counter" ? "pending" : "completed"
+        
+        // Set initial appointment status
+        // If counter payment or needs admin confirmation, set to noShow (WAITING) status
+        // This will be updated to scheduled once admin confirms
+        let appointmentStatus = paymentMethod == "counter" ? 
+            AppointmentData.AppointmentStatus.noShow.rawValue : 
+            AppointmentData.AppointmentStatus.scheduled.rawValue
+        
         let appointmentData: [String: Any] = [
             "id": appointmentId,
             "patId": patientId,
@@ -218,12 +269,15 @@ struct BookAppointmentView: View {
             "date": dateString,
             "time": selectedTime,
             "appointmentDateTime": appointmentDateTime as Any,
-            "status": AppointmentData.AppointmentStatus.scheduled.rawValue,
+            "status": appointmentStatus,
             "durationMinutes": appointmentDuration,
             "reason": reason,
             "createdAt": FieldValue.serverTimestamp(),
             "database": dbName,
-            "userType": UserDefaults.standard.string(forKey: "userType") ?? "patient"
+            "userType": UserDefaults.standard.string(forKey: "userType") ?? "patient",
+            "paymentStatus": paymentStatus,
+            "paymentMethod": paymentMethod,
+            "adminConfirmed": paymentMethod != "counter"
         ]
         
         // Save to Firestore
@@ -283,5 +337,26 @@ struct DoctorInfoHeader: View {
             }
         }
         .padding(.vertical, 8)
+    }
+}
+
+// Helper extension for rounded corners
+extension View {
+    func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> some View {
+        clipShape(RoundedCornerShape(radius: radius, corners: corners))
+    }
+}
+
+struct RoundedCornerShape: Shape {
+    var radius: CGFloat = .infinity
+    var corners: UIRectCorner = .allCorners
+    
+    func path(in rect: CGRect) -> Path {
+        let path = UIBezierPath(
+            roundedRect: rect,
+            byRoundingCorners: corners,
+            cornerRadii: CGSize(width: radius, height: radius)
+        )
+        return Path(path.cgPath)
     }
 }
