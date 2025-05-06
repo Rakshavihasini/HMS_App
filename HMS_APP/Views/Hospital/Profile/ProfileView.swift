@@ -271,7 +271,7 @@ struct ProfileView: View {
         
         // Delete Appwrite account
         do {
-            try await authService.deleteAccount()
+            try await authService.deleteUserAccount()
             print("✅ Appwrite account deletion attempted")
         } catch {
             print("❌ Error with Appwrite account: \(error.localizedDescription)")

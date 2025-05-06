@@ -216,7 +216,7 @@ struct BookAppointmentView: View {
                                 ], spacing: 12) {
                                     ForEach(showAllMorningSlots ? filteredMorningSlots : Array(filteredMorningSlots.prefix(4)), id: \.self) { slot in
                                         let isSlotUnavailable = isTimeSlotUnavailable(slot)
-                                        Button(action: { 
+                                        Button(action: {
                                             if !isSlotUnavailable {
                                                 selectedTime = slot
                                             }
@@ -265,7 +265,7 @@ struct BookAppointmentView: View {
                                 ], spacing: 12) {
                                     ForEach(showAllAfternoonSlots ? filteredAfternoonSlots : Array(filteredAfternoonSlots.prefix(4)), id: \.self) { slot in
                                         let isSlotUnavailable = isTimeSlotUnavailable(slot)
-                                        Button(action: { 
+                                        Button(action: {
                                             if !isSlotUnavailable {
                                                 selectedTime = slot
                                             }
@@ -369,7 +369,7 @@ struct BookAppointmentView: View {
                 let docRef = db.collection("hms4_doctors").document(doctorId)
                 let document = try await docRef.getDocument()
                 
-                if document.exists, let data = document.data(), 
+                if document.exists, let data = document.data(),
                    let scheduleData = data["schedule"] as? [String: Any],
                    let fullDayLeaves = scheduleData["fullDayLeaves"] as? [Any] {
                     
@@ -735,7 +735,7 @@ struct BookAppointmentView: View {
         }
         
         // As a final check, fetch and check the raw Firebase data
-        // This is a synchronous check so we need to use a cached result or check asynchronously 
+        // This is a synchronous check so we need to use a cached result or check asynchronously
         // and update the UI later
         if let doctorId = doctor.id {
             let db = Firestore.firestore()
@@ -759,7 +759,7 @@ struct BookAppointmentView: View {
                     let docRef = db.collection("hms4_doctors").document(doctorId)
                     let document = try await docRef.getDocument()
                     
-                    if document.exists, let data = document.data(), 
+                    if document.exists, let data = document.data(),
                        let scheduleData = data["schedule"] as? [String: Any],
                        let fullDayLeaves = scheduleData["fullDayLeaves"] as? [Any] {
                         
