@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct DoctorProfileView: View {
+    @EnvironmentObject var authManager: AuthManager
+    @State private var navigateToUserSelection = false
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject var doctorManager: DoctorManager
     @Environment(\.dismiss) private var dismiss
@@ -91,7 +93,10 @@ struct DoctorProfileView: View {
 
                 Spacer()
 
-                NavigationLink(destination: UserSelectionView()){
+                Button(action: {
+                    authManager.logout()
+                    navigateToUserSelection = true
+                }){
                     Text("Logout")
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -99,13 +104,14 @@ struct DoctorProfileView: View {
                         .foregroundColor(.white)
                         .cornerRadius(12)
                 }
+                
                 .padding()
 
             }
             .padding()
         }
-        .navigationDestination(isPresented: $navigateToSignUp) {
-            SignUpScreen(userType: "doctor")
+        .navigationDestination(isPresented: $navigateToUserSelection) {
+            UserSelectionView()
         }
         .navigationTitle("Profile")
         .navigationBarTitleDisplayMode(.inline)
