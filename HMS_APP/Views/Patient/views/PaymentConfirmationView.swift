@@ -17,6 +17,7 @@ struct PaymentConfirmationView: View {
     let onCancel: () -> Void
     @Environment(\.colorScheme) var colorScheme
     @State private var selectedPaymentMethod: PaymentMethod? = nil
+    @StateObject private var router = Router<ViewPath>()
     
     enum PaymentMethod {
         case counter, online
@@ -29,7 +30,7 @@ struct PaymentConfirmationView: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack(path: $router.path) {
             ScrollView {
                 VStack(spacing: 0) {
                     // Header section
@@ -57,13 +58,20 @@ struct PaymentConfirmationView: View {
                         actionButtonsView
                     }
                     .background(colorScheme == .dark ? Color(.systemBackground) : Color(.systemBackground))
-
                     .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: -5)
                 }
             }
             .edgesIgnoringSafeArea(.bottom)
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(for: ViewPath.self) { path in
+                switch path {
+                case .payment:
+                    PaymentGatewayHelper(consultationFee: consultationFee)
+                        .environmentObject(router)
+                }
+            }
         }
+        .environmentObject(router)
     }
     
     // MARK: - Component Views
@@ -188,9 +196,14 @@ struct PaymentConfirmationView: View {
         }
     }
     
+    // Add this state variable
+    @State private var showingPaymentSheet = false
+    
+    // Modify the payOnlineButton action
     private var payOnlineButton: some View {
         Button(action: {
             selectedPaymentMethod = .online
+            showingPaymentSheet = true  // Show sheet instead of navigating
         }) {
             VStack(spacing: 12) {
                 Image(systemName: "creditcard.fill")
@@ -215,6 +228,10 @@ struct PaymentConfirmationView: View {
             )
             .foregroundColor(selectedPaymentMethod == .online ?
                 .medicareBlue : .primary)
+        }
+        .sheet(isPresented: $showingPaymentSheet) {
+            PaymentGatewayHelper(consultationFee: consultationFee)
+                .environmentObject(router)
         }
     }
     
