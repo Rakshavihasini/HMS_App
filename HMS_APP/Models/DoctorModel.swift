@@ -22,6 +22,7 @@ struct Doctor: Identifiable, Codable {
     /// The doctor's email address for contact
     let email: String
     
+    /// The doctor's medical speciality (e.g., Cardiology, Pediatrics, etc.)
     let speciality: String
     
     /// The doctor's license registration number
@@ -62,6 +63,7 @@ struct Doctor: Identifiable, Codable {
     ///   - name: The doctor's full name
     ///   - number: The doctor's numeric identifier (optional)
     ///   - email: The doctor's email address
+    ///   - speciality: The doctor's medical speciality
     ///   - licenseRegNo: The doctor's license registration number (optional)
     ///   - smc: The doctor's State Medical Council (optional)
     ///   - gender: The doctor's gender (optional)
@@ -201,7 +203,7 @@ extension Doctor {
             name: "Dr. John Smith",
             number: 12345,
             email: "dr.john.smith@hospital.com",
-            speciality: "General Physician",
+            speciality: "Cardiology",
             licenseRegNo: "MED-12345-XY",
             smc: "Medical Council of India",
             gender: "Male",
@@ -211,12 +213,14 @@ extension Doctor {
         )
     }
 }
+
 // MARK: - DoctorManager
 
 class DoctorManager: ObservableObject {
     @Published var currentUserInfo: [String: Any]?
     @Published var currentDoctor: Doctor?
     @Published var error: String?
+    @Published var isLicenseVerified = false
     
     private let db = Firestore.firestore()
     private let dbName = "hms4"
@@ -224,6 +228,7 @@ class DoctorManager: ObservableObject {
     init() {
         Task {
             await fetchCurrentUserInfo()
+            checkLicenseVerification()
         }
     }
     
@@ -269,6 +274,14 @@ class DoctorManager: ObservableObject {
                     )
                 }
                 
+                // Check license details
+                if let licenseDetails = data["licenseDetails"] as? [String: Any],
+                   let verificationStatus = licenseDetails["verificationStatus"] as? String {
+                    self.isLicenseVerified = verificationStatus.lowercased() == "verified"
+                } else {
+                    self.isLicenseVerified = false
+                }
+                
                 self.currentDoctor = Doctor(
                     id: document.documentID,
                     name: data["name"] as? String ?? "",
@@ -290,5 +303,28 @@ class DoctorManager: ObservableObject {
         } catch {
             self.error = "Error fetching doctor info: \(error.localizedDescription)"
         }
+    }
+    
+    func checkLicenseVerification() {
+        guard let userId = UserDefaults.standard.string(forKey: "userId") else { return }
+        
+        db.collection("\(dbName)_doctors").document(userId).getDocument { [weak self] snapshot, error in
+            guard let data = snapshot?.data(),
+                  let licenseDetails = data["licenseDetails"] as? [String: Any],
+                  let verificationStatus = licenseDetails["verificationStatus"] as? String else {
+                DispatchQueue.main.async {
+                    self?.isLicenseVerified = false
+                }
+                return
+            }
+            
+            DispatchQueue.main.async {
+                self?.isLicenseVerified = verificationStatus.lowercased() == "verified"
+            }
+        }
+    }
+    
+    func updateLicenseVerification(isVerified: Bool) {
+        self.isLicenseVerified = isVerified
     }
 }

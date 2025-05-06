@@ -96,6 +96,7 @@ class DoctorService: ObservableObject {
             "name": doctor.name,
             "number": doctor.number as Any,
             "email": doctor.email,
+            "speciality": doctor.speciality,
             "licenseRegNo": doctor.licenseRegNo as Any,
             "smc": doctor.smc as Any,
             "gender": doctor.gender as Any,
