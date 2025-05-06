@@ -1,6 +1,6 @@
 import SwiftUI
 import FirebaseFirestore
-import FirebaseFirestoreFirebase
+
 
 struct BookAppointmentView: View {
     @Environment(\.presentationMode) var presentationMode
@@ -69,6 +69,31 @@ struct BookAppointmentView: View {
         }
     }
     
+    // Calculate years of experience
+    private var yearsOfExperience: Int? {
+        // Debug prints to diagnose the issue
+        print("DEBUG: Doctor name: \(doctor.name)")
+        print("DEBUG: licenseDetails: \(String(describing: doctor.licenseDetails))")
+        if let licenseDetails = doctor.licenseDetails {
+            print("DEBUG: yearOfRegistration: \(String(describing: licenseDetails.yearOfRegistration))")
+            if let year = licenseDetails.yearOfRegistration {
+                let currentYear = Calendar.current.component(.year, from: Date())
+                return max(0, currentYear - year)
+            }
+        }
+        
+        // Return nil if no year of registration is available
+        return nil
+    }
+    
+    private var experienceText: String {
+        if let years = yearsOfExperience {
+            return "\(years) YEARS"
+        } else {
+            return "EXPERIENCED"  // Fallback text when no year data available
+        }
+    }
+    
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
@@ -89,11 +114,6 @@ struct BookAppointmentView: View {
                             Text("\(doctor.speciality)")
                                 .font(.subheadline)
                                 .foregroundColor(.gray)
-                            
-                            Text("15 YEARS")
-                                .font(.subheadline)
-                                .foregroundColor(themePurple)
-                                .fontWeight(.medium)
                         }
                         
                         Spacer()
