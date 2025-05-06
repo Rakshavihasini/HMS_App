@@ -245,7 +245,8 @@ struct TwoFAView: View {
             case "hospital":
                 HospitalView()
             case "doctor":
-                DoctorTabView()
+                // For new doctor signups, show license verification first
+                LicenseVerificationView()
             case "patient":
                 PatientHomeView()
             default:
