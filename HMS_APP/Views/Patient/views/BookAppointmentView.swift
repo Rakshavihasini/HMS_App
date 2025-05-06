@@ -1,5 +1,6 @@
 import SwiftUI
 import FirebaseFirestore
+import FirebaseFirestoreFirebase
 
 struct BookAppointmentView: View {
     @Environment(\.presentationMode) var presentationMode
@@ -46,8 +47,12 @@ struct BookAppointmentView: View {
     private let calendar = Calendar.current
     
     // Theme colors
-    private let themeBlue = Color(red: 0.129, green: 0.588, blue: 0.953)
-    private let themePurple = Color(red: 0.4, green: 0.2, blue: 0.8)
+    private var themeBlue: Color {
+        colorScheme == .dark ? Color(red: 0.4, green: 0.7, blue: 1.0) : Color(red: 0.129, green: 0.588, blue: 0.953)
+    }
+    private var themePurple: Color {
+        colorScheme == .dark ? Color(red: 0.5, green: 0.3, blue: 0.9) : Color(red: 0.4, green: 0.2, blue: 0.8)
+    }
     
     var morningSlots: [String] {
         availableTimeSlots.filter { slot in
@@ -79,6 +84,7 @@ struct BookAppointmentView: View {
                             Text(doctor.name)
                                 .font(.title2)
                                 .fontWeight(.semibold)
+                                .foregroundColor(colorScheme == .dark ? .white : .primary)
                             
                             Text("\(doctor.speciality)")
                                 .font(.subheadline)
@@ -95,10 +101,11 @@ struct BookAppointmentView: View {
                         Text("₹1000")
                             .font(.title3)
                             .fontWeight(.semibold)
+                            .foregroundColor(colorScheme == .dark ? .white : .primary)
                     }
                 }
                 .padding()
-                .background(Color.white)
+                .background(colorScheme == .dark ? Color(.systemGray6) : Color.white)
                 .cornerRadius(12)
                 .padding()
                 
@@ -132,10 +139,10 @@ struct BookAppointmentView: View {
                                                 .textCase(.uppercase)
                                         }
                                         .frame(width: 70, height: 90)
-                                        .foregroundColor(isFullDayLeave ? .gray : (calendar.isDate(date, inSameDayAs: selectedDate) ? .white : .primary))
+                                        .foregroundColor(isFullDayLeave ? .gray : (calendar.isDate(date, inSameDayAs: selectedDate) ? .white : (colorScheme == .dark ? .white : .primary)))
                                         .background(
                                             RoundedRectangle(cornerRadius: 12)
-                                                .fill(isFullDayLeave ? Color.gray.opacity(0.2) : (calendar.isDate(date, inSameDayAs: selectedDate) ? themeBlue : Color.white))
+                                                .fill(isFullDayLeave ? Color.gray.opacity(0.2) : (calendar.isDate(date, inSameDayAs: selectedDate) ? themeBlue : (colorScheme == .dark ? Color(.systemGray5) : Color.white)))
                                         )
                                         .overlay(
                                             RoundedRectangle(cornerRadius: 12)
@@ -150,7 +157,7 @@ struct BookAppointmentView: View {
                     }
                 }
                 .padding(.vertical)
-                .background(Color(.systemGray6))
+                .background(colorScheme == .dark ? Color(.systemGray6) : Color(.systemGray6))
                 
                 // Time Slots
                 VStack(alignment: .leading, spacing: 20) {
@@ -173,6 +180,7 @@ struct BookAppointmentView: View {
                                         .foregroundColor(.orange)
                                     Text("Morning")
                                         .font(.headline)
+                                        .foregroundColor(colorScheme == .dark ? .white : .primary)
                                     Spacer()
                                     Button(action: { showAllMorningSlots.toggle() }) {
                                         Text(showAllMorningSlots ? "Show Less" : "View All")
@@ -197,8 +205,8 @@ struct BookAppointmentView: View {
                                                 .font(.subheadline)
                                                 .padding(.vertical, 12)
                                                 .frame(maxWidth: .infinity)
-                                                .background(isSlotUnavailable ? Color.gray.opacity(0.2) : (selectedTime == slot ? themeBlue : Color.white))
-                                                .foregroundColor(isSlotUnavailable ? .gray : (selectedTime == slot ? .white : .primary))
+                                                .background(isSlotUnavailable ? Color.gray.opacity(0.2) : (selectedTime == slot ? themeBlue : (colorScheme == .dark ? Color(.systemGray5) : Color.white)))
+                                                .foregroundColor(isSlotUnavailable ? .gray : (selectedTime == slot ? .white : (colorScheme == .dark ? .white : .primary)))
                                                 .cornerRadius(8)
                                                 .overlay(
                                                     RoundedRectangle(cornerRadius: 8)
@@ -221,6 +229,7 @@ struct BookAppointmentView: View {
                                         .foregroundColor(.orange)
                                     Text("Afternoon")
                                         .font(.headline)
+                                        .foregroundColor(colorScheme == .dark ? .white : .primary)
                                     Spacer()
                                     Button(action: { showAllAfternoonSlots.toggle() }) {
                                         Text(showAllAfternoonSlots ? "Show Less" : "View All")
@@ -245,8 +254,8 @@ struct BookAppointmentView: View {
                                                 .font(.subheadline)
                                                 .padding(.vertical, 12)
                                                 .frame(maxWidth: .infinity)
-                                                .background(isSlotUnavailable ? Color.gray.opacity(0.2) : (selectedTime == slot ? themeBlue : Color.white))
-                                                .foregroundColor(isSlotUnavailable ? .gray : (selectedTime == slot ? .white : .primary))
+                                                .background(isSlotUnavailable ? Color.gray.opacity(0.2) : (selectedTime == slot ? themeBlue : (colorScheme == .dark ? Color(.systemGray5) : Color.white)))
+                                                .foregroundColor(isSlotUnavailable ? .gray : (selectedTime == slot ? .white : (colorScheme == .dark ? .white : .primary)))
                                                 .cornerRadius(8)
                                                 .overlay(
                                                     RoundedRectangle(cornerRadius: 8)
@@ -269,7 +278,7 @@ struct BookAppointmentView: View {
                             TextField("Enter your reason for visit", text: $reason)
                                 .textFieldStyle(PlainTextFieldStyle())
                                 .padding()
-                                .background(Color.white)
+                                .background(colorScheme == .dark ? Color(.systemGray5) : Color.white)
                                 .cornerRadius(8)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 8)
@@ -286,7 +295,7 @@ struct BookAppointmentView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationTitle("Select Time Slot")
         .navigationBarBackButtonHidden(false)
-        .background(Color(.systemGray6))
+        .background(colorScheme == .dark ? Color.black : Color(.systemGray6))
         .safeAreaInset(edge: .bottom) {
             VStack {
                 Button(action: bookAppointment) {
@@ -302,7 +311,7 @@ struct BookAppointmentView: View {
                 }
                 .disabled(selectedTime.isEmpty)
                 .padding()
-                .background(Color.white)
+                .background(colorScheme == .dark ? Color(.systemGray6) : Color.white)
             }
         }
         .background(
@@ -325,7 +334,48 @@ struct BookAppointmentView: View {
             Text(errorMessage)
         }
         .onAppear {
+            prefetchFullDayLeavesData()
             fetchAvailableTimeSlots()
+        }
+    }
+    
+    private func prefetchFullDayLeavesData() {
+        guard let doctorId = doctor.id else { return }
+        
+        Task {
+            do {
+                print("DEBUG: Prefetching full day leaves data for doctor \(doctorId)")
+                let db = Firestore.firestore()
+                let docRef = db.collection("hms4_doctors").document(doctorId)
+                let document = try await docRef.getDocument()
+                
+                if document.exists, let data = document.data(), 
+                   let scheduleData = data["schedule"] as? [String: Any],
+                   let fullDayLeaves = scheduleData["fullDayLeaves"] as? [Any] {
+                    
+                    var leaveTimestamps: [Double] = []
+                    
+                    for leave in fullDayLeaves {
+                        if let timestamp = leave as? Timestamp {
+                            let leaveDate = timestamp.dateValue()
+                            leaveTimestamps.append(leaveDate.timeIntervalSince1970)
+                            print("DEBUG: Found full day leave timestamp at: \(leaveDate)")
+                        }
+                    }
+                    
+                    // Cache all the leave timestamps for future quick checks
+                    UserDefaults.standard.set(leaveTimestamps, forKey: "fullDayLeaves_\(doctorId)")
+                    
+                    // Force UI refresh if needed
+                    await MainActor.run {
+                        // This will trigger a UI refresh
+                        let currentDate = selectedDate
+                        selectedDate = currentDate
+                    }
+                }
+            } catch {
+                print("DEBUG: Error prefetching full day leaves: \(error)")
+            }
         }
     }
     
@@ -454,6 +504,153 @@ struct BookAppointmentView: View {
             }
         }
         
+        // Fetch the raw schedule data from Firebase to see what's actually stored
+        if let doctorId = doctor.id {
+            Task {
+                do {
+                    print("DEBUG: Fetching raw schedule data for doctor \(doctorId)")
+                    let db = Firestore.firestore()
+                    let docRef = db.collection("hms4_doctors").document(doctorId)
+                    let document = try await docRef.getDocument()
+                    
+                    if document.exists, let data = document.data() {
+                        if let scheduleData = data["schedule"] as? [String: Any] {
+                            print("DEBUG: Raw schedule data from Firebase: \(scheduleData)")
+                            
+                            // Print detailed info about fullDayLeaves
+                            if let fullDayLeaves = scheduleData["fullDayLeaves"] {
+                                print("DEBUG: fullDayLeaves type: \(type(of: fullDayLeaves))")
+                                print("DEBUG: fullDayLeaves value: \(fullDayLeaves)")
+                                
+                                if let fullDayLeavesArray = fullDayLeaves as? [Any] {
+                                    for (index, leave) in fullDayLeavesArray.enumerated() {
+                                        print("DEBUG: fullDayLeaves[\(index)] type: \(type(of: leave))")
+                                        print("DEBUG: fullDayLeaves[\(index)] value: \(leave)")
+                                    }
+                                }
+                                
+                                if let fullDayLeavesDict = fullDayLeaves as? [String: Any] {
+                                    for (key, value) in fullDayLeavesDict {
+                                        print("DEBUG: fullDayLeaves[\"\(key)\"] type: \(type(of: value))")
+                                        print("DEBUG: fullDayLeaves[\"\(key)\"] value: \(value)")
+                                    }
+                                }
+                            } else {
+                                print("DEBUG: fullDayLeaves is nil")
+                            }
+                            
+                            // Print detailed info about leaveTimeSlots
+                            if let leaveTimeSlots = scheduleData["leaveTimeSlots"] {
+                                print("DEBUG: leaveTimeSlots type: \(type(of: leaveTimeSlots))")
+                                print("DEBUG: leaveTimeSlots value: \(leaveTimeSlots)")
+                                
+                                if let leaveTimeSlotsArray = leaveTimeSlots as? [Any] {
+                                    for (index, slot) in leaveTimeSlotsArray.enumerated() {
+                                        print("DEBUG: leaveTimeSlots[\(index)] type: \(type(of: slot))")
+                                        print("DEBUG: leaveTimeSlots[\(index)] value: \(slot)")
+                                    }
+                                }
+                                
+                                if let leaveTimeSlotsDict = leaveTimeSlots as? [String: Any] {
+                                    for (key, value) in leaveTimeSlotsDict {
+                                        print("DEBUG: leaveTimeSlots[\"\(key)\"] type: \(type(of: value))")
+                                        print("DEBUG: leaveTimeSlots[\"\(key)\"] value: \(value)")
+                                    }
+                                }
+                            } else {
+                                print("DEBUG: leaveTimeSlots is nil")
+                            }
+                            
+                            // Immediately use the raw data to update our view
+                            // This is a fallback in case our DoctorProfile model doesn't parse the data correctly
+                            await MainActor.run {
+                                // Handle fullDayLeaves
+                                if let fullDayLeaves = scheduleData["fullDayLeaves"] as? [Any] {
+                                    // Check for Timestamps which is what SlotManagerView uses
+                                    for leave in fullDayLeaves {
+                                        if let timestamp = leave as? Timestamp {
+                                            let leaveDate = timestamp.dateValue()
+                                            if calendar.isDate(leaveDate, inSameDayAs: selectedDate) {
+                                                print("DEBUG: Found matching full day leave timestamp for selected date")
+                                                availableTimeSlots = []
+                                                isLoading = false
+                                                return
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                // Handle leaveTimeSlots
+                                if let leaveTimeSlots = scheduleData["leaveTimeSlots"] as? [Any] {
+                                    for slot in leaveTimeSlots {
+                                        if let timestamp = slot as? Timestamp {
+                                            let slotDate = timestamp.dateValue()
+                                            if calendar.isDate(slotDate, inSameDayAs: selectedDate) {
+                                                let timeFormatter = DateFormatter()
+                                                timeFormatter.dateFormat = "h:mm a"
+                                                let timeString = timeFormatter.string(from: slotDate)
+                                                print("DEBUG: Found blocked time slot: \(timeString)")
+                                                availableTimeSlots.removeAll { $0 == timeString }
+                                            }
+                                        }
+                                    }
+                                    
+                                    // Now also handle the timestamps we see in the debug logs by converting them directly
+                                    for (index, slot) in leaveTimeSlots.enumerated() {
+                                        if let timestamp = slot as? Timestamp {
+                                            let slotDate = timestamp.dateValue()
+                                            if calendar.isDate(slotDate, inSameDayAs: selectedDate) {
+                                                // Format the time to match our available time slots format
+                                                let timeFormatter = DateFormatter()
+                                                timeFormatter.dateFormat = "h:mm a"
+                                                let timeString = timeFormatter.string(from: slotDate)
+                                                print("DEBUG: Processing timestamp[\(index)]: \(timestamp.seconds) -> \(timeString)")
+                                                
+                                                // Remove this slot from available slots
+                                                availableTimeSlots.removeAll { slot in
+                                                    // Try exact match first
+                                                    if slot == timeString {
+                                                        print("DEBUG: Removed blocked slot (exact match): \(slot)")
+                                                        return true
+                                                    }
+                                                    
+                                                    // Try case-insensitive match
+                                                    if slot.lowercased() == timeString.lowercased() {
+                                                        print("DEBUG: Removed blocked slot (case-insensitive): \(slot)")
+                                                        return true
+                                                    }
+                                                    
+                                                    // Try alternative format (with/without leading zero)
+                                                    let alternativeFormatter = DateFormatter()
+                                                    alternativeFormatter.dateFormat = "h:mm a"
+                                                    if let time = timeFormatter.date(from: timeString) {
+                                                        let altTimeString = alternativeFormatter.string(from: time)
+                                                        if slot == altTimeString {
+                                                            print("DEBUG: Removed blocked slot (alternative format): \(slot)")
+                                                            return true
+                                                        }
+                                                    }
+                                                    
+                                                    return false
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                isLoading = false
+                            }
+                        } else {
+                            print("DEBUG: No schedule data found in the doctor document")
+                        }
+                    } else {
+                        print("DEBUG: Doctor document not found")
+                    }
+                } catch {
+                    print("DEBUG: Error fetching doctor document: \(error)")
+                }
+            }
+        }
+        
         // Check for existing appointments
         Task {
             do {
@@ -513,6 +710,63 @@ struct BookAppointmentView: View {
                 let leaveDateNormalized = calendar.startOfDay(for: parsedDate)
                 if calendar.isDate(normalizedDate, inSameDayAs: leaveDateNormalized) {
                     return true
+                }
+            }
+        }
+        
+        // As a final check, fetch and check the raw Firebase data
+        // This is a synchronous check so we need to use a cached result or check asynchronously 
+        // and update the UI later
+        if let doctorId = doctor.id {
+            let db = Firestore.firestore()
+            
+            // Check user defaults for a cached list of full day leaves
+            let defaults = UserDefaults.standard
+            let cachedLeavesKey = "fullDayLeaves_\(doctorId)"
+            
+            if let cachedLeaveTimestamps = defaults.array(forKey: cachedLeavesKey) as? [Double] {
+                for timestamp in cachedLeaveTimestamps {
+                    let leaveDate = Date(timeIntervalSince1970: timestamp)
+                    if calendar.isDate(normalizedDate, inSameDayAs: leaveDate) {
+                        return true
+                    }
+                }
+            }
+            
+            // Start an async task to fetch and cache the full day leaves for future use
+            Task {
+                do {
+                    let docRef = db.collection("hms4_doctors").document(doctorId)
+                    let document = try await docRef.getDocument()
+                    
+                    if document.exists, let data = document.data(), 
+                       let scheduleData = data["schedule"] as? [String: Any],
+                       let fullDayLeaves = scheduleData["fullDayLeaves"] as? [Any] {
+                        
+                        var leaveTimestamps: [Double] = []
+                        
+                        for leave in fullDayLeaves {
+                            if let timestamp = leave as? Timestamp {
+                                let leaveDate = timestamp.dateValue()
+                                leaveTimestamps.append(leaveDate.timeIntervalSince1970)
+                                
+                                // If this leave date matches our query date, note it for UI update
+                                if calendar.isDate(normalizedDate, inSameDayAs: leaveDate) {
+                                    // Cache the result
+                                    defaults.set(leaveTimestamps, forKey: cachedLeavesKey)
+                                    
+                                    // We found a match, but it's too late to affect the current UI drawing
+                                    // The next time the view refreshes, it will use the cached value
+                                    print("DEBUG: Found full day leave in async check, will update UI on next refresh")
+                                }
+                            }
+                        }
+                        
+                        // Cache all the leave timestamps for future quick checks
+                        defaults.set(leaveTimestamps, forKey: cachedLeavesKey)
+                    }
+                } catch {
+                    print("DEBUG: Error checking full day leaves: \(error)")
                 }
             }
         }
