@@ -8,8 +8,6 @@ struct PatientsListView: View {
     @State private var searchText = ""
     @State private var showPatientDetail = false
     @State private var selectedPatient: Patient?
-    @State private var showDeleteConfirmation = false
-    @State private var patientToDelete: Patient?
     
     var body: some View {
         ZStack {
@@ -38,14 +36,11 @@ struct PatientsListView: View {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         ForEach(filteredPatients) { patient in
-                            PatientCard(patient: patient, onDelete: { 
-                                patientToDelete = patient
-                                showDeleteConfirmation = true
-                            })
-                            .onTapGesture {
-                                selectedPatient = patient
-                                showPatientDetail = true
-                            }
+                            PatientCard(patient: patient)
+                                .onTapGesture {
+                                    selectedPatient = patient
+                                    showPatientDetail = true
+                                }
                         }
                     }
                     .padding()
@@ -58,32 +53,8 @@ struct PatientsListView: View {
                 PatientDetailView(patient: patient)
             }
         }
-        .alert(isPresented: $showDeleteConfirmation) {
-            Alert(
-                title: Text("Delete Patient"),
-                message: Text("Are you sure you want to delete this patient?"),
-                primaryButton: .destructive(Text("Delete")) {
-                    if let patient = patientToDelete {
-                        deletePatient(patient)
-                    }
-                },
-                secondaryButton: .cancel()
-            )
-        }
         .onAppear {
             patientDetails.fetchPatients()
-        }
-    }
-    
-    private func deletePatient(_ patient: Patient) {
-        patientDetails.deletePatient(patient: patient) { success in
-            if success {
-                // Patient deleted successfully
-                patientDetails.fetchPatients()
-            } else {
-                // Handle error (optional)
-                print("Failed to delete patient")
-            }
         }
     }
     
@@ -104,7 +75,6 @@ struct PatientsListView: View {
 struct PatientCard: View {
     @Environment(\.colorScheme) var colorScheme
     let patient: Patient
-    let onDelete: () -> Void
     
     var initials: String {
         let components = patient.name.components(separatedBy: " ")
@@ -152,15 +122,8 @@ struct PatientCard: View {
             
             Spacer()
             
-            HStack {
-                Image(systemName: "chevron.right")
-                    .foregroundColor(.gray)
-                
-                Button(action: onDelete) {
-                    Image(systemName: "trash")
-                        .foregroundColor(.red)
-                }
-            }
+            Image(systemName: "chevron.right")
+                .foregroundColor(.gray)
         }
         .padding()
         .background(colorScheme == .dark ? Color(.systemGray6) : Color(.systemBackground))
