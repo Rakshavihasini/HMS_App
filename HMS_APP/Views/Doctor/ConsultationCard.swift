@@ -8,13 +8,24 @@
 import SwiftUI
 
 struct ConsultationCard: View {
-    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.colorScheme) var colorScheme
     let appointment: AppointmentData
     let onReschedule: () -> Void
     var onStartConsult: (() -> Void)? = nil
     
     private var theme: Theme {
         colorScheme == .dark ? Theme.dark : Theme.light
+    }
+    
+    // Check if appointment is for today
+    private var isToday: Bool {
+        guard let dateString = appointment.date else { return false }
+        
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        
+        let today = dateFormatter.string(from: Date())
+        return dateString == today
     }
     
     var body: some View {
@@ -85,7 +96,8 @@ struct ConsultationCard: View {
                         filled: true,
                         action: {
                             onStartConsult?()
-                        }
+                        },
+                        isDisabled: !isToday
                     )
                 }else if isWaiting == true{
                     
@@ -174,6 +186,7 @@ struct ActionButton: View {
     let title: String
     var filled: Bool = false
     let action: () -> Void
+    var isDisabled: Bool = false
     
     var body: some View {
         Button(action: action) {
@@ -188,10 +201,12 @@ struct ActionButton: View {
             .foregroundColor(filled ? .white : .blue)
             .background(
                 filled ? 
-                Color.blue :
-                Color.blue.opacity(0.1)
+                (isDisabled ? Color.gray : Color.blue) :
+                (isDisabled ? Color.gray.opacity(0.1) : Color.blue.opacity(0.1))
             )
             .cornerRadius(8)
         }
+        .disabled(isDisabled)
+        .opacity(isDisabled ? 0.6 : 1.0)
     }
-} 
+}
