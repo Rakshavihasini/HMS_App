@@ -1017,6 +1017,21 @@ struct BookAppointmentView: View {
             "userType": UserDefaults.standard.string(forKey: "userType") ?? "patient"
         ]
         
+        // Create transaction data
+        let transactionId = UUID().uuidString
+        let transactionData: [String: Any] = [
+            "id": transactionId,
+            "patientId": patientId,
+            "doctorId": doctorId,
+            "amount": consultationFee,
+            "paymentMethod": paymentMethod,
+            "paymentStatus": paymentMethod == "counter" ? "pending" : "completed",
+            "appointmentId": appointmentId,
+            "appointmentDate": dateString,
+            "transactionDate": FieldValue.serverTimestamp(),
+            "type": "consultation_fee"
+        ]
+        
         Task {
             do {
                 let patientDoc = try await db.collection("\(dbName)_patients").document(patientId).getDocument()
@@ -1032,7 +1047,11 @@ struct BookAppointmentView: View {
                     ])
                 }
                 
+                // Store appointment data
                 try await db.collection("\(dbName)_appointments").document(appointmentId).setData(appointmentData)
+                
+                // Store transaction data
+                try await db.collection("\(dbName)_transactions").document(transactionId).setData(transactionData)
                 
                 await MainActor.run {
                     isLoading = false
