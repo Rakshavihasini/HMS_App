@@ -23,10 +23,9 @@ struct AdminAppointmentView: View {
     
     var pendingPaymentAppointments: [AppointmentData] {
         appointments.filter { appointment in
-            // We need to fetch the appointments with pending payment status
-            // Since we're already filtering in the Firestore query, we can just return all appointments
-            // that were fetched, as they all have pending payment status
-            return true
+            // We need to fetch the appointments with pending payment status and WAITING status
+            // This will ensure we only show appointments that need payment confirmation
+            return appointment.status == .noShow
         }
     }
     
@@ -114,9 +113,16 @@ struct AdminAppointmentView: View {
     private func fetchAppointments() {
         isLoading = true
         
+        // Debug the query parameters
+        print("Fetching appointments with status: \(AppointmentData.AppointmentStatus.noShow.rawValue)")
+        
+        // Print the raw value to ensure we're using the correct string
+        print("noShow status raw value: \(AppointmentData.AppointmentStatus.noShow.rawValue)")
+        
+        // Query for appointments with pending payment and WAITING status
         db.collection("\(dbName)_appointments")
             .whereField("paymentStatus", isEqualTo: "pending")
-            .whereField("status", isEqualTo: AppointmentData.AppointmentStatus.noShow.rawValue)
+            .whereField("status", isEqualTo: "WAITING")
             .getDocuments { snapshot, error in
                 if let error = error {
                     alertMessage = "Error fetching appointments: \(error.localizedDescription)"
@@ -126,12 +132,16 @@ struct AdminAppointmentView: View {
                 }
                 
                 guard let documents = snapshot?.documents else {
+                    print("No documents found")
                     isLoading = false
                     return
                 }
                 
+                print("Found \(documents.count) appointments")
+                
                 self.appointments = documents.compactMap { document -> AppointmentData? in
                     let data = document.data()
+                    print("Processing document: \(document.documentID), status: \(data["status"] as? String ?? "unknown")")
                     
                     // Parse date and time
                     var appointmentDateTime: Date? = nil
@@ -241,9 +251,20 @@ struct AppointmentPaymentRow: View {
                 
                 Image(systemName: "clock")
                     .foregroundColor(.gray)
-                Text(appointment.time)
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
+                if !appointment.time.isEmpty {
+                    Text(appointment.time)
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                } else if let dateTime = appointment.appointmentDateTime {
+                    let formatter = DateFormatter()
+                    Text(formatter.string(from: dateTime))
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                } else {
+                    Text("Time not set")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                }
             }
             
             if let reason = appointment.reason, !reason.isEmpty {
