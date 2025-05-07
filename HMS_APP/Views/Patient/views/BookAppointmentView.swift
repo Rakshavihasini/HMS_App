@@ -169,7 +169,7 @@ struct BookAppointmentView: View {
                                     Button(action: {
                                         if !isFullDayLeave {
                                             selectedDate = date
-                                            fetchAvailableTimeSlots()
+                            fetchAvailableTimeSlots()
                                         }
                                     }) {
                                         VStack(spacing: 8) {
@@ -207,7 +207,7 @@ struct BookAppointmentView: View {
                 // Time Slots
                 VStack(alignment: .leading, spacing: 20) {
                     if isLoading {
-                        ProgressView()
+                            ProgressView()
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .padding()
                     } else if availableTimeSlots.isEmpty {
@@ -337,7 +337,7 @@ struct BookAppointmentView: View {
                 .padding(.vertical)
             }
         }
-        .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.inline)
         .navigationTitle("Select Time Slot")
         .navigationBarBackButtonHidden(false)
         .background(colorScheme == .dark ? Color.black : Color(.systemGray6))
@@ -383,7 +383,7 @@ struct BookAppointmentView: View {
                 }
             )
         }
-        .alert(isPresented: $showingConfirmation) {
+            .alert(isPresented: $showingConfirmation) {
             // Check payment method to show appropriate confirmation message
             let paymentMethod = UserDefaults.standard.string(forKey: "selectedPaymentMethod") ?? ""
             
@@ -404,15 +404,15 @@ struct BookAppointmentView: View {
                     }
                 )
             }
-        }
-        .alert("Error", isPresented: $showingError) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(errorMessage)
-        }
-        .onAppear {
+            }
+            .alert("Error", isPresented: $showingError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(errorMessage)
+            }
+            .onAppear {
             prefetchFullDayLeavesData()
-            fetchAvailableTimeSlots()
+                fetchAvailableTimeSlots()
         }
     }
     
@@ -557,9 +557,9 @@ struct BookAppointmentView: View {
                     } else if leaveDate == dateString {
                         // Also try to match the string format directly
                         print("DEBUG: Selected date is a full day leave (string match)")
-                        availableTimeSlots = []
-                        isLoading = false
-                        return
+            availableTimeSlots = []
+            isLoading = false
+            return
                     }
                 }
             }

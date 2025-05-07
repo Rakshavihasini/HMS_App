@@ -169,13 +169,14 @@ struct ConsultationsChartView: View {
         .shadow(color: currentTheme.shadow, radius: 10, x: 0, y: 2)
         .padding(.horizontal)
         .onAppear {
-            fetchTodayAppointments()
+            fetchAppointments()
         }
     }
     
-    private func fetchTodayAppointments() {
+    private func fetchAppointments() {
         Task {
-            await appointmentManager.fetchAppointments()
+            // Use the AppointmentManager to fetch all appointments
+            await appointmentManager.fetchAllAppointments()
             processAppointmentData()
         }
     }
@@ -191,7 +192,20 @@ struct ConsultationsChartView: View {
         
         // Process each appointment
         for appointment in appointmentManager.allAppointments {
-            guard let appointmentDateTime = appointment.appointmentDateTime else { continue }
+            guard let appointmentDateTime = appointment.appointmentDateTime else {
+                // Try to parse from date string if available
+                if let dateStr = appointment.date, let dateObj = parseDate(dateStr) {
+                    if calendar.isDate(dateObj, inSameDayAs: selectedDate) {
+                        // Default to 9 AM if time not specified
+                        let hour = 9
+                        if appointmentsByHour[hour] == nil {
+                            appointmentsByHour[hour] = []
+                        }
+                        appointmentsByHour[hour]?.append(appointment)
+                    }
+                }
+                continue
+            }
             
             // Only include appointments for the selected date
             if appointmentDateTime >= startOfSelectedDate && appointmentDateTime < endOfSelectedDate {
@@ -238,6 +252,90 @@ struct ConsultationsChartView: View {
             self.totalConsultations = totalCount
             self.peakConsultations = maxCount
             self.averageDuration = totalCount > 0 ? totalDuration / totalCount : 0
+        }
+    }
+    
+    private func parseDate(_ dateStr: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.date(from: dateStr)
+    }
+}
+
+// Extend AppointmentManager to add a method to fetch all appointments
+extension AppointmentManager {
+    @MainActor
+    func fetchAllAppointments() async {
+        isLoading = true
+        error = nil
+        
+        do {
+            // Use Firestore directly without accessing private properties
+            let firestore = Firestore.firestore()
+            let appointmentsCollection = "hms4_appointments"
+            let snapshot = try await firestore.collection(appointmentsCollection).getDocuments()
+            
+            var appointments: [AppointmentData] = []
+            
+            for document in snapshot.documents {
+                let data = document.data()
+                
+                // Get basic appointment data
+                let id = document.documentID
+                let patientId = data["patId"] as? String ?? ""
+                let patientName = data["patName"] as? String ?? ""
+                let doctorId = data["docId"] as? String ?? ""
+                let doctorName = data["docName"] as? String ?? ""
+                let patientRecordsId = data["patientRecordsId"] as? String ?? ""
+                
+                // Parse appointment date time
+                var appointmentDateTime: Date? = nil
+                if let dateTimeTimestamp = data["appointmentDateTime"] as? Timestamp {
+                    appointmentDateTime = dateTimeTimestamp.dateValue()
+                } else if let dateStr = data["date"] as? String, let timeStr = data["time"] as? String {
+                    // Fallback to legacy date and time format
+                    let dateFormatter = DateFormatter()
+                    dateFormatter.dateFormat = "yyyy-MM-dd h:mm a"
+                    appointmentDateTime = dateFormatter.date(from: "\(dateStr) \(timeStr)")
+                }
+                
+                // Parse status
+                var appointmentStatus: AppointmentData.AppointmentStatus? = nil
+                if let statusStr = data["status"] as? String {
+                    appointmentStatus = AppointmentData.AppointmentStatus(rawValue: statusStr.uppercased())
+                }
+                
+                // Get duration and notes
+                let durationMinutes = data["durationMinutes"] as? Int
+                let notes = data["notes"] as? String
+                let reason = data["reason"] as? String
+                let date = data["date"] as? String
+                
+                let appointment = AppointmentData(
+                    id: id,
+                    patientId: patientId,
+                    patientName: patientName,
+                    doctorId: doctorId,
+                    doctorName: doctorName,
+                    patientRecordsId: patientRecordsId,
+                    appointmentDateTime: appointmentDateTime,
+                    status: appointmentStatus,
+                    durationMinutes: durationMinutes,
+                    notes: notes,
+                    date: date,
+                    reason: reason
+                )
+                
+                appointments.append(appointment)
+            }
+            
+            self.allAppointments = appointments
+            self.isLoading = false
+            
+        } catch {
+            self.isLoading = false
+            self.error = "Error fetching appointments: \(error.localizedDescription)"
+            print("DEBUG: Error fetching all appointments: \(error.localizedDescription)")
         }
     }
 }

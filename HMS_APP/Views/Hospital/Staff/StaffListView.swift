@@ -10,6 +10,8 @@ struct StaffListView: View {
     @State private var showAddStaff = false
     @State private var selectedStaff: Staff?
     @State private var shouldRefreshList = false
+    @State private var showingDeleteAlert = false
+    @State private var staffToDelete: Staff? = nil
     
     let filters = ["All", "Doctor", "Nurse", "Pharmacist", "Receptionist", "Counselor", "Lab Technician"]
     
@@ -23,6 +25,57 @@ struct StaffListView: View {
         "Counselor": "brain.head.profile",
         "Lab Technician": "testtube.2"
     ]
+    
+    // Function to handle staff deletion
+    private func deleteStaff(_ staff: Staff) {
+        staffToDelete = staff
+        showingDeleteAlert = true
+    }
+    
+    private func handleRemove(staff: Staff) {
+        if staff.staffRole == "Doctor" {
+            // Create a Doctor object from Staff data
+            let doctor = Doctor(
+                id: staff.id,
+                name: staff.name,
+                number: nil,
+                email: staff.email,
+                speciality: staff.educationalQualification ?? "",
+                licenseRegNo: nil,
+                smc: nil,
+                gender: nil,
+                dateOfBirth: staff.dateOfBirth,
+                yearOfRegistration: nil,
+                schedule: nil
+            )
+            
+            Task {
+                await MainActor.run {
+                    doctorService.deleteDoctor(doctor: doctor) { success in
+                        if success {
+                            print("✅ Doctor deleted successfully")
+                            self.shouldRefreshList = true
+                        } else {
+                            print("❌ Failed to delete doctor")
+                        }
+                    }
+                }
+            }
+        } else {
+            Task {
+                await MainActor.run {
+                    staffService.deleteStaff(staff: staff) { success in
+                        if success {
+                            print("✅ Staff deleted successfully")
+                            self.shouldRefreshList = true
+                        } else {
+                            print("❌ Failed to delete staff")
+                        }
+                    }
+                }
+            }
+        }
+    }
     
     var filteredStaff: [Staff] {
         // Combine doctors and staff into a single array
@@ -179,6 +232,20 @@ struct StaffListView: View {
                                             roleIcon: roleSymbols[staff.staffRole ?? ""] ?? "person.fill"
                                         )
                                     }
+                                    .contextMenu {
+                                        Button(role: .destructive) {
+                                            deleteStaff(staff)
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
+                                    }
+                                    .swipeActions(edge: .trailing) {
+                                        Button(role: .destructive) {
+                                            deleteStaff(staff)
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
+                                    }
                                 }
                             }
                             .padding()
@@ -230,6 +297,15 @@ struct StaffListView: View {
         .onAppear {
             staffService.fetchStaff()
             doctorService.fetchDoctors()
+        }
+        .alert("Confirm Deletion", isPresented: $showingDeleteAlert) {
+            Button("Delete", role: .destructive) {
+                guard let staff = staffToDelete else { return }
+                handleRemove(staff: staff)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Are you sure you want to delete \(staffToDelete?.name ?? "this staff member")? This action cannot be undone.")
         }
     }
 }

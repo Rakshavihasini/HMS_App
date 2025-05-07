@@ -21,10 +21,25 @@ struct ConsultationsPerHourCard: View {
         let currentHour = calendar.component(.hour, from: now)
         
         return appointmentManager.allAppointments.filter { appointment in
-            guard let appointmentDateTime = appointment.appointmentDateTime else { return false }
-            let appointmentHour = calendar.component(.hour, from: appointmentDateTime)
-            let isToday = calendar.isDate(appointmentDateTime, inSameDayAs: now)
-            return isToday && appointmentHour == currentHour
+            // First try to use appointmentDateTime if available
+            if let appointmentDateTime = appointment.appointmentDateTime {
+                let appointmentHour = calendar.component(.hour, from: appointmentDateTime)
+                let isToday = calendar.isDate(appointmentDateTime, inSameDayAs: now)
+                return isToday && appointmentHour == currentHour
+            }
+            
+            // Try to use date string if appointmentDateTime is not available
+            if let dateStr = appointment.date {
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyy-MM-dd"
+                if let dateObj = formatter.date(from: dateStr) {
+                    let isToday = calendar.isDate(dateObj, inSameDayAs: now)
+                    // Since we don't have a specific hour, we'll consider it as current hour
+                    return isToday
+                }
+            }
+            
+            return false
         }.count
     }
     
@@ -93,7 +108,7 @@ struct ConsultationsPerHourCard: View {
         .shadow(color: currentTheme.shadow, radius: 10, x: 0, y: 2)
         .onAppear {
             Task {
-                await appointmentManager.fetchAppointments()
+                await appointmentManager.fetchAllAppointments()
             }
         }
     }
