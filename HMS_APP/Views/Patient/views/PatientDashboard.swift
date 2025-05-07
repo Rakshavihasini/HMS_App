@@ -17,7 +17,7 @@ struct PatientDashboardView: View {
 
     var currentAppointments: [AppointmentData] {
         appointmentManager.patientAppointments.filter {
-            $0.status == .scheduled || $0.status == .inProgress || $0.status == .rescheduled
+            $0.status == .scheduled || $0.status == .inProgress || $0.status == .rescheduled || $0.status == .noShow // Added .noShow for WAITING status
         }
     }
 
@@ -266,21 +266,27 @@ struct AppointmentCard: View {
     
     var statusColor: Color {
         switch appointment.status {
-        case .scheduled, .rescheduled:
-            return .medicareBlue
-        case .inProgress:
-            return .medicareGreen
-        case .completed:
-            return .medicareGreen
-        case .cancelled, .noShow:
-            return .medicareRed
+        case .scheduled, .rescheduled: return .medicareBlue
+        case .inProgress: return .medicareGreen
+        case .completed: return .gray
+        case .cancelled: return .medicareRed
+        case .noShow: return .orange // Set "Waiting" status color to orange
         case .none:
             return .gray
         }
     }
     
     var statusText: String {
-        appointment.status?.rawValue.capitalized ?? "Unknown"
+        switch appointment.status {
+        case .scheduled: return "Scheduled"
+        case .inProgress: return "In Progress"
+        case .completed: return "Completed"
+        case .cancelled: return "Cancelled"
+        case .noShow: return "Waiting" // Changed from "No Show" to "Waiting"
+        case .rescheduled: return "Rescheduled"
+        case .none:
+            return "None"
+        }
     }
     
     var body: some View {
@@ -373,7 +379,7 @@ struct AllAppointmentsView: View {
     @Environment(\.colorScheme) var colorScheme
     
     enum AppointmentFilter {
-        case all, upcoming, completed, cancelled
+        case all, upcoming, completed, cancelled, waiting
         
         var title: String {
             switch self {
@@ -381,6 +387,7 @@ struct AllAppointmentsView: View {
             case .upcoming: return "Upcoming"
             case .completed: return "Completed"
             case .cancelled: return "Cancelled"
+            case .waiting: return "Waitlist"
             }
         }
     }
@@ -397,8 +404,10 @@ struct AllAppointmentsView: View {
             return appointmentManager.patientAppointments.filter { $0.status == .completed }
         case .cancelled:
             return appointmentManager.patientAppointments.filter { 
-                $0.status == .cancelled || $0.status == .noShow 
+                $0.status == .cancelled
             }
+        case .waiting:
+            return appointmentManager.patientAppointments.filter { $0.status == .noShow }
         }
     }
     
@@ -407,7 +416,7 @@ struct AllAppointmentsView: View {
             // Filter Buttons
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
-                    ForEach([AppointmentFilter.all, .upcoming, .completed, .cancelled], id: \.title) { filter in
+                    ForEach([AppointmentFilter.all, .upcoming, .completed, .cancelled, .waiting], id: \.title) { filter in
                         Button(action: { selectedFilter = filter }) {
                             Text(filter.title)
                                 .font(.system(size: 14, weight: .medium))
