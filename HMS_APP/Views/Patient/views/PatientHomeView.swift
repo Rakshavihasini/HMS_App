@@ -23,6 +23,8 @@ struct PatientHomeView: View {
                     }
                 
                 DoctorsView()
+                    .navigationBarHidden(true)
+                    .navigationBarBackButtonHidden(true)
                     .tabItem {
                         Label("Doctors", systemImage: "stethoscope")
                     }

@@ -43,8 +43,8 @@ struct PatientDashboardView: View {
                         CurrentAppointmentsSection(appointments: currentAppointments)
                     }
 
-                    LatestReportsView()
-                    RemindersView()
+//                    LatestReportsView()
+//                    RemindersView()
                 }
             }
             .padding(.vertical)
