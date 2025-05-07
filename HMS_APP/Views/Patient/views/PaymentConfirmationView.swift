@@ -299,6 +299,14 @@ struct PaymentConfirmationView: View {
         }
         .padding(.horizontal)
         .padding(.bottom, 30)
+        .alert("Confirm Payment", isPresented: $showPaymentAlert) {
+            Button("Confirm") {
+                onConfirm()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Your appointment will be booked. Please pay at the counter.")
+        }
     }
 }
 

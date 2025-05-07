@@ -1004,6 +1004,7 @@ struct BookAppointmentView: View {
             "time": startTime,
             "appointmentDateTime": appointmentDateTime as Any,
             "status": appointmentStatus.rawValue,
+            "paymentStatus": paymentMethod == "counter" ? "pending" : "completed",
             "durationMinutes": 60,
             "reason": reason,
             "createdAt": FieldValue.serverTimestamp(),
