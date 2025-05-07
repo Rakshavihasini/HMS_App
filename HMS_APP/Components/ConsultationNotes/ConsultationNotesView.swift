@@ -298,39 +298,66 @@ struct ConsultationNotesView: View {
                     self.doctorNotes = "Initial complaint: \(reason)\n\n"
                 }
                 
-                // Fetch patient name from hms4_patients collection
-                if !self.patientId.isEmpty {
-                    db.collection("hms4_patients").document(self.patientId).getDocument { (patientDoc, patientError) in
-                        if let patientError = patientError {
-                            print("Error fetching patient data: \(patientError.localizedDescription)")
-                            self.errorMessage = "Could not fetch patient information"
-                            self.isLoading = false
-                            return
-                        }
-                        
-                        if let patientDoc = patientDoc, patientDoc.exists, let patientData = patientDoc.data() {
-                            // Get patient name from patient document
-                            if let name = patientData["name"] as? String {
-                                self.patientName = name
-                            } else {
-                                // If no name found, use a placeholder
-                                self.patientName = "Unknown Patient"
-                            }
-                        } else {
-                            // If patient document not found
-                            self.patientName = "Patient ID: \(self.patientId)"
-                        }
-                        
-                        self.isLoading = false
+                // Check if there's existing consultation data for this appointment
+                db.collection("consult").document(self.appointmentId).getDocument { (consultDoc, consultError) in
+                    if let consultError = consultError {
+                        print("Error fetching consultation data: \(consultError.localizedDescription)")
                     }
-                } else {
-                    // If no patientId
-                    self.patientName = "No Patient ID"
-                    self.isLoading = false
+                    
+                    if let consultDoc = consultDoc, consultDoc.exists, let consultData = consultDoc.data() {
+                        // Populate fields with existing consultation data
+                        if let doctorNotes = consultData["doctorNotes"] as? String {
+                            self.doctorNotes = doctorNotes
+                        }
+                        
+                        if let prescriptions = consultData["prescriptions"] as? String {
+                            self.prescriptions = prescriptions
+                        }
+                        
+                        if let tests = consultData["recommendedTests"] as? String {
+                            self.tests = tests
+                        }
+                    }
+                    
+                    // Continue with fetching patient data
+                    self.fetchPatientData(db: db)
                 }
             } else {
                 self.isLoading = false
             }
+        }
+    }
+    
+    // Helper method to fetch patient data
+    private func fetchPatientData(db: Firestore) {
+        if !self.patientId.isEmpty {
+            db.collection("hms4_patients").document(self.patientId).getDocument { (patientDoc, patientError) in
+                if let patientError = patientError {
+                    print("Error fetching patient data: \(patientError.localizedDescription)")
+                    self.errorMessage = "Could not fetch patient information"
+                    self.isLoading = false
+                    return
+                }
+                
+                if let patientDoc = patientDoc, patientDoc.exists, let patientData = patientDoc.data() {
+                    // Get patient name from patient document
+                    if let name = patientData["name"] as? String {
+                        self.patientName = name
+                    } else {
+                        // If no name found, use a placeholder
+                        self.patientName = "Unknown Patient"
+                    }
+                } else {
+                    // If patient document not found
+                    self.patientName = "Patient ID: \(self.patientId)"
+                }
+                
+                self.isLoading = false
+            }
+        } else {
+            // If no patientId
+            self.patientName = "No Patient ID"
+            self.isLoading = false
         }
     }
     
