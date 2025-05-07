@@ -207,8 +207,8 @@ struct DoctorsView: View {
                 }
             }
         }
-        .navigationBarHidden(true)
-        .navigationBarBackButtonHidden(true)
+//        .navigationBarHidden(true)
+//        .navigationBarBackButtonHidden(true)
         .background(colorScheme == .dark ? Theme.dark.background : Theme.light.background)
         .onAppear {
             doctorService.fetchDoctors()
