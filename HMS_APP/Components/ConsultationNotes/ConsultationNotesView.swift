@@ -366,7 +366,7 @@ struct ConsultationNotesView: View {
                 
                 // Update the appointment status to "Completed"
                 db.collection("hms4_appointments").document(appointmentId).updateData([
-                    "status": "Completed",
+                    "status": "COMPLETED",
                     "consultationCompleted": true
                 ]) { error in
                     if let error = error {
