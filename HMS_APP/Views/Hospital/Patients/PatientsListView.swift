@@ -5,6 +5,7 @@ struct PatientsListView: View {
     @Environment(\.colorScheme) var colorScheme
 //    @Binding var selectedTab: Int
     @StateObject private var patientDetails = PatientDetails()
+    @StateObject private var appointmentManager = AppointmentManager()
     @State private var searchText = ""
     @State private var showPatientDetail = false
     @State private var selectedPatient: Patient?
@@ -39,6 +40,10 @@ struct PatientsListView: View {
                             PatientCard(patient: patient)
                                 .onTapGesture {
                                     selectedPatient = patient
+                                    // Pre-fetch appointments for this patient
+                                    Task {
+                                        await appointmentManager.fetchAppointments(for: patient.id)
+                                    }
                                     showPatientDetail = true
                                 }
                         }
@@ -50,7 +55,7 @@ struct PatientsListView: View {
         .navigationBarBackButtonHidden()
         .navigationDestination(isPresented: $showPatientDetail) {
             if let patient = selectedPatient {
-                PatientDetailView(patient: patient)
+                PatientDetailView(patient: patient, appointmentManager: appointmentManager)
             }
         }
         .onAppear {
