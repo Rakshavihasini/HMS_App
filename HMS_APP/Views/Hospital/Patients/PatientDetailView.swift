@@ -97,33 +97,33 @@ struct PatientDetailView: View {
                 let data = transactionDoc.data()
                 let amount = data["amount"] as? Int ?? 0
                 
+                // Create a batch write to update both collections atomically
+                let batch = db.batch()
+                
                 // Update transaction status to completed
-                db.collection("hms4_transactions").document(transactionId).updateData([
-                    "paymentStatus": "completed"
-                ]) { error in
+                let transactionRef = db.collection("hms4_transactions").document(transactionId)
+                batch.updateData(["paymentStatus": "completed"], forDocument: transactionRef)
+                
+                // Update appointment status to scheduled
+                let appointmentRef = db.collection("hms4_appointments").document(appointmentId)
+                batch.updateData(["status": "SCHEDULED"], forDocument: appointmentRef)
+                batch.updateData(["paymentStatus": "completed"], forDocument: appointmentRef)
+                
+                // Commit the batch
+                batch.commit { error in
                     if let error = error {
-                        print("Error updating transaction: \(error)")
+                        print("Error updating documents: \(error)")
                         return
                     }
                     
-                    // Update appointment status to scheduled
-                    db.collection("hms4_appointments").document(appointmentId).updateData([
-                        "status": "SCHEDULED"
-                    ]) { error in
-                        if let error = error {
-                            print("Error updating appointment: \(error)")
-                            return
-                        }
+                    // Update local payment data
+                    DispatchQueue.main.async {
+                        self.pending -= amount
+                        self.paid += amount
                         
-                        // Update local payment data
-                        DispatchQueue.main.async {
-                            self.pending -= amount
-                            self.paid += amount
-                            
-                            // Refresh appointments
-                            Task {
-                                await self.appointmentManager.fetchAppointments(for: self.patient.id)
-                            }
+                        // Refresh appointments
+                        Task {
+                            await self.appointmentManager.fetchAppointments(for: self.patient.id)
                         }
                     }
                 }
