@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Charts
+import HMS_APP
 
 struct ConsultationDetailView: View {
     @Environment(\.colorScheme) var colorScheme
@@ -479,8 +480,4 @@ struct FilterView: View {
             }
         }
     }
-}
-
-enum TimeRange {
-    case day, week, month
 }
