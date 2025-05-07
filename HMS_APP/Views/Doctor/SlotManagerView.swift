@@ -92,7 +92,9 @@ struct CalendarView: View {
                     let isPastDate = date < calendar.startOfDay(for: Date())
                     
                     Button(action: {
-                        selectedDate = date
+                        if !isPastDate {
+                            selectedDate = date
+                        }
                     }) {
                         ZStack {
                             Circle()
@@ -113,6 +115,7 @@ struct CalendarView: View {
                         }
                         .opacity(isPastDate ? 0.6 : 1)
                     }
+                    .disabled(isPastDate)
                 }
             }
             .padding(12)
@@ -181,6 +184,7 @@ struct SlotSection: View {
     let theme: Theme
     let onToggle: (String) -> Void
     let blockedSlots: Set<String>
+    let checkIfPastSlot: (String) -> Bool
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -201,10 +205,13 @@ struct SlotSection: View {
             
             LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(slots, id: \.self) { slot in
+                    let isPastSlot = checkIfPastSlot(slot)
+                    
                     SlotToggleButton(
                         time: slot,
                         isBlocked: blockedSlots.contains(slot) || isFullDayBlocked,
                         fullDayBlock: isFullDayBlocked,
+                        isPastSlot: isPastSlot,
                         leaveColor: leaveColor,
                         theme: theme,
                         onToggle: {
@@ -227,12 +234,13 @@ struct SlotToggleButton: View {
     let time: String
     let isBlocked: Bool
     let fullDayBlock: Bool
+    let isPastSlot: Bool
     let leaveColor: Color
     let theme: Theme
     let onToggle: () -> Void
     
     var body: some View {
-        Button(action: fullDayBlock ? {} : onToggle) {
+        Button(action: (fullDayBlock || isPastSlot) ? {} : onToggle) {
             HStack {
                 Text(time)
                     .font(.system(size: 14))
@@ -253,9 +261,9 @@ struct SlotToggleButton: View {
                             .strokeBorder(isBlocked ? leaveColor.opacity(0.3) : Color.green.opacity(0.3), lineWidth: 1)
                     )
             )
-            .opacity(fullDayBlock ? 0.6 : 1)
+            .opacity(fullDayBlock ? 0.6 : (isPastSlot ? 0.4 : 1))
         }
-        .disabled(fullDayBlock)
+        .disabled(fullDayBlock || isPastSlot)
     }
 }
 
@@ -469,9 +477,6 @@ struct DoctorSlotManagerView: View {
                                 .padding(.horizontal)
                             
                             // Morning slots
-                            // Update the body view to use the corrected SlotSection with blockedSlots
-                            // Find this part in the body and replace it:
-                            // Morning slots
                             SlotSection(
                                 title: "Morning Slots",
                                 icon: "sunrise.fill",
@@ -484,7 +489,10 @@ struct DoctorSlotManagerView: View {
                                 onToggle: { slot in
                                     toggleTimeSlot(for: selectedDate, time: slot)
                                 },
-                                blockedSlots: blockedSlotsForDate(selectedDate)
+                                blockedSlots: blockedSlotsForDate(selectedDate),
+                                checkIfPastSlot: { slot in
+                                    isSlotInPast(date: selectedDate, slot: slot)
+                                }
                             )
                             
                             // Afternoon slots
@@ -500,10 +508,11 @@ struct DoctorSlotManagerView: View {
                                 onToggle: { slot in
                                     toggleTimeSlot(for: selectedDate, time: slot)
                                 },
-                                blockedSlots: blockedSlotsForDate(selectedDate)
+                                blockedSlots: blockedSlotsForDate(selectedDate),
+                                checkIfPastSlot: { slot in
+                                    isSlotInPast(date: selectedDate, slot: slot)
+                                }
                             )
-                            
-                            // Afternoon slots
                         }
                         .padding(.top, 8)
                         
@@ -845,6 +854,43 @@ struct DoctorSlotManagerView: View {
         //        ObjectWillChangePublisher().send()
     }
     
+    /// Filter time slots based on current time
+    func filteredTimeSlots(for date: Date, slots: [String]) -> [String] {
+        // Return all slots instead of filtering them
+        return slots
+    }
+    
+    /// Check if a time slot is in the past
+    func isSlotInPast(date: Date, slot: String) -> Bool {
+        let calendar = Calendar.current
+        let isToday = calendar.isDateInToday(date)
+        
+        if !isToday {
+            return false
+        }
+        
+        let currentDate = Date()
+        let timeFormatter = DateFormatter()
+        timeFormatter.dateFormat = "hh:mm a"
+        
+        if let slotTime = timeFormatter.date(from: slot) {
+            // Extract hours and minutes from the slot time
+            let slotComponents = calendar.dateComponents([.hour, .minute], from: slotTime)
+            
+            // Create a date for today with the slot's time
+            var slotDateComponents = calendar.dateComponents([.year, .month, .day], from: currentDate)
+            slotDateComponents.hour = slotComponents.hour
+            slotDateComponents.minute = slotComponents.minute
+            
+            if let slotDateToday = calendar.date(from: slotDateComponents) {
+                // Add 30 minutes buffer to current time
+                let bufferTime = calendar.date(byAdding: .minute, value: 30, to: currentDate) ?? currentDate
+                return slotDateToday <= bufferTime
+            }
+        }
+        return false
+    }
+    
     /// Toggles a full day leave for a specific date
     func toggleFullDayLeave(for date: Date) {
         // Save current state for undo
@@ -1164,6 +1210,7 @@ struct DoctorSlotManagerView: View {
         let theme: Theme
         let onToggle: (String) -> Void
         let blockedSlots: Set<String>
+        let checkIfPastSlot: (String) -> Bool
         
         var body: some View {
             VStack(alignment: .leading, spacing: 12) {
@@ -1184,10 +1231,13 @@ struct DoctorSlotManagerView: View {
                 
                 LazyVGrid(columns: columns, spacing: 12) {
                     ForEach(slots, id: \.self) { slot in
+                        let isPastSlot = checkIfPastSlot(slot)
+                        
                         SlotToggleButton(
                             time: slot,
                             isBlocked: blockedSlots.contains(slot) || isFullDayBlocked,
                             fullDayBlock: isFullDayBlocked,
+                            isPastSlot: isPastSlot,
                             leaveColor: leaveColor,
                             theme: theme,
                             onToggle: {
