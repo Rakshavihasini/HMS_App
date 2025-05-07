@@ -33,6 +33,10 @@ struct PatientDetailView: View {
     @ObservedObject var appointmentManager: AppointmentManager
     @State private var showingCalendar = false
     
+    // Alert states
+    @State private var showingConfirmationAlert = false
+    @State private var selectedAppointment: AppointmentData? = nil
+    
     private func fetchPaymentData() {
         let db = Firestore.firestore()
         db.collection("hms4_transactions")
@@ -66,6 +70,62 @@ struct PatientDetailView: View {
                     self.totalBill = totalAmount
                     self.paid = paidAmount
                     self.pending = pendingAmount
+                }
+            }
+    }
+    
+    // Function to handle payment confirmation and status update
+    private func confirmPayment(for appointment: AppointmentData) {
+        let appointmentId = appointment.id
+        
+        // Find the transaction for this appointment
+        let db = Firestore.firestore()
+        db.collection("hms4_transactions")
+            .whereField("appointmentId", isEqualTo: appointmentId)
+            .getDocuments { snapshot, error in
+                if let error = error {
+                    print("Error fetching transaction: \(error)")
+                    return
+                }
+                
+                guard let documents = snapshot?.documents, let transactionDoc = documents.first else {
+                    print("Transaction not found")
+                    return
+                }
+                
+                let transactionId = transactionDoc.documentID
+                let data = transactionDoc.data()
+                let amount = data["amount"] as? Int ?? 0
+                
+                // Update transaction status to completed
+                db.collection("hms4_transactions").document(transactionId).updateData([
+                    "paymentStatus": "completed"
+                ]) { error in
+                    if let error = error {
+                        print("Error updating transaction: \(error)")
+                        return
+                    }
+                    
+                    // Update appointment status to scheduled
+                    db.collection("hms4_appointments").document(appointmentId).updateData([
+                        "status": "SCHEDULED"
+                    ]) { error in
+                        if let error = error {
+                            print("Error updating appointment: \(error)")
+                            return
+                        }
+                        
+                        // Update local payment data
+                        DispatchQueue.main.async {
+                            self.pending -= amount
+                            self.paid += amount
+                            
+                            // Refresh appointments
+                            Task {
+                                await self.appointmentManager.fetchAppointments(for: self.patient.id)
+                            }
+                        }
+                    }
                 }
             }
     }
@@ -285,6 +345,13 @@ struct PatientDetailView: View {
                                 ForEach(appointmentManager.patientAppointments) { appointment in
                                     AppointmentCardView(appointment: appointment, colorScheme: colorScheme)
                                         .padding(.horizontal, 20)
+                                        .onTapGesture {
+                                            // Check if appointment status is "WAITING" (noShow)
+                                            if appointment.status == .noShow {
+                                                selectedAppointment = appointment
+                                                showingConfirmationAlert = true
+                                            }
+                                        }
                                 }
                             }
                         }
@@ -301,6 +368,16 @@ struct PatientDetailView: View {
                 // Only fetch payment data, the appointment manager should be passed in with data
                 fetchPaymentData()
             }
+        }
+        .alert("Confirm Payment", isPresented: $showingConfirmationAlert) {
+            Button("Confirm") {
+                if let appointment = selectedAppointment {
+                    confirmPayment(for: appointment)
+                }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Do you want to confirm payment for this appointment? This will change the status from Waiting to Scheduled.")
         }
         .navigationBarHidden(true)
         .sheet(isPresented: $showingCalendar) {
