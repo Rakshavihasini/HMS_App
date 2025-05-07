@@ -196,14 +196,9 @@ struct PaymentConfirmationView: View {
         }
     }
     
-    // Add this state variable
-    @State private var showingPaymentSheet = false
-    
-    // Modify the payOnlineButton action
     private var payOnlineButton: some View {
         Button(action: {
             selectedPaymentMethod = .online
-            showingPaymentSheet = true  // Show sheet instead of navigating
         }) {
             VStack(spacing: 12) {
                 Image(systemName: "creditcard.fill")
@@ -229,10 +224,6 @@ struct PaymentConfirmationView: View {
             .foregroundColor(selectedPaymentMethod == .online ?
                 .medicareBlue : .primary)
         }
-        .sheet(isPresented: $showingPaymentSheet) {
-            PaymentGatewayHelper(consultationFee: consultationFee)
-                .environmentObject(router)
-        }
     }
     
     private var paymentNoteView: some View {
@@ -251,7 +242,7 @@ struct PaymentConfirmationView: View {
                 HStack {
                     Image(systemName: "info.circle.fill")
                         .foregroundColor(.medicareBlue)
-                    Text("Online payment will be available soon")
+                    Text("Pay online by razorpay gateway")
                         .font(.caption)
                         .foregroundColor(.gray)
                 }
@@ -260,6 +251,9 @@ struct PaymentConfirmationView: View {
         }
     }
     
+    // Add alert state
+    @State private var showPaymentAlert = false
+    
     private var actionButtonsView: some View {
         VStack(spacing: 12) {
             Button(action: {
@@ -267,8 +261,16 @@ struct PaymentConfirmationView: View {
                 if let method = selectedPaymentMethod {
                     let methodString = method == .counter ? "counter" : "online"
                     UserDefaults.standard.set(methodString, forKey: "selectedPaymentMethod")
+                    
+                    // Handle different payment methods
+                    if method == .counter {
+                        // Show alert for counter payment
+                        showPaymentAlert = true
+                    } else if method == .online {
+                        // Navigate to payment gateway
+                        router.path.append(ViewPath.payment)
+                    }
                 }
-                onConfirm()
             }) {
                 Text("Confirm Appointment")
                     .font(.headline)

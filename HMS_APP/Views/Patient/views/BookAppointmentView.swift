@@ -379,13 +379,26 @@ struct BookAppointmentView: View {
             )
         }
         .alert(isPresented: $showingConfirmation) {
-            Alert(
-                title: Text("Appointment Booked"),
-                message: Text("Your appointment with \(doctor.name) on \(formattedDate()) at \(selectedTime) has been confirmed."),
-                dismissButton: .default(Text("OK")) {
-                    shouldNavigateBack = true
-                }
-            )
+            // Check payment method to show appropriate confirmation message
+            let paymentMethod = UserDefaults.standard.string(forKey: "selectedPaymentMethod") ?? ""
+            
+            if paymentMethod == "counter" {
+                return Alert(
+                    title: Text("Appointment Pending"),
+                    message: Text("Your appointment with \(doctor.name) on \(formattedDate()) at \(selectedTime) will be confirmed after payment verification at the hospital counter."),
+                    dismissButton: .default(Text("OK")) {
+                        shouldNavigateBack = true
+                    }
+                )
+            } else {
+                return Alert(
+                    title: Text("Appointment Booked"),
+                    message: Text("Your appointment with \(doctor.name) on \(formattedDate()) at \(selectedTime) has been confirmed."),
+                    dismissButton: .default(Text("OK")) {
+                        shouldNavigateBack = true
+                    }
+                )
+            }
         }
         .alert("Error", isPresented: $showingError) {
             Button("OK", role: .cancel) { }
@@ -967,6 +980,19 @@ struct BookAppointmentView: View {
             return
         }
         
+        // Check payment method from UserDefaults
+        let paymentMethod = UserDefaults.standard.string(forKey: "selectedPaymentMethod") ?? ""
+        
+        // Set appointment status based on payment method
+        let appointmentStatus: AppointmentData.AppointmentStatus
+        if paymentMethod == "counter" {
+            // For counter payments, set status to .noShow (WAITING) until admin confirms
+            appointmentStatus = .noShow
+        } else {
+            // For online payments, set status to scheduled
+            appointmentStatus = .scheduled
+        }
+        
         let appointmentData: [String: Any] = [
             "id": appointmentId,
             "patId": patientId,
@@ -977,7 +1003,7 @@ struct BookAppointmentView: View {
             "date": dateString,
             "time": startTime,
             "appointmentDateTime": appointmentDateTime as Any,
-            "status": AppointmentData.AppointmentStatus.scheduled.rawValue,
+            "status": appointmentStatus.rawValue,
             "durationMinutes": 60,
             "reason": reason,
             "createdAt": FieldValue.serverTimestamp(),
