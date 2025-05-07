@@ -87,8 +87,10 @@ struct ConsultationCard: View {
                             onStartConsult?()
                         }
                     )
+                }else if isWaiting == true{
+                    
                 }
-                else if isUpcoming == false{
+                else{
                     ActionButton(
                         icon: "doc.text.magnifyingglass",
                         title: "View Notes",
@@ -111,6 +113,10 @@ struct ConsultationCard: View {
     private var isUpcoming: Bool {
         let lowerStatus = appointment.status
         return lowerStatus?.rawValue == "UPCOMING" || lowerStatus?.rawValue == "CONFIRMED" || lowerStatus?.rawValue == "SCHEDULED" || lowerStatus?.rawValue == "RESCHEDULED"
+    }
+    private var isWaiting: Bool {
+        let lowerStatus = appointment.status
+        return lowerStatus?.rawValue == "WAITING"
     }
 }
 
