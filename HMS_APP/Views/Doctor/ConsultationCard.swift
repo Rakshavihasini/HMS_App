@@ -12,6 +12,7 @@ struct ConsultationCard: View {
     let appointment: AppointmentData
     let onReschedule: () -> Void
     var onStartConsult: (() -> Void)? = nil
+    @State private var showReadOnlyConsultation = false
     
     private var theme: Theme {
         colorScheme == .dark ? Theme.dark : Theme.light
@@ -108,7 +109,7 @@ struct ConsultationCard: View {
                         title: "View Notes",
                         filled: true,
                         action: {
-                            onStartConsult?()
+                            showReadOnlyConsultation = true
                         }
                     )
                 }
@@ -119,6 +120,9 @@ struct ConsultationCard: View {
         .background(theme.card)
         .cornerRadius(16)
         .shadow(color: theme.shadow, radius: 1, x: 0, y: 1)
+        .sheet(isPresented: $showReadOnlyConsultation) {
+            ReadOnlyConsultationNotesView(appointmentId: appointment.id)
+        }
     }
     
     // Check if appointment is upcoming
