@@ -22,16 +22,21 @@ struct BookAppointmentView: View {
     
     // Add consultationFee calculation based on doctor's speciality
     private var consultationFee: Int {
-        switch doctor.speciality {
-        case "Cardiology":
+        let normalizedSpeciality = doctor.speciality.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        print("DEBUG: Normalized specialty: '\(normalizedSpeciality)'")
+        switch normalizedSpeciality {
+        case "cardiologist":
             return 1500
-        case "Neurology":
+        case "neurologist":
             return 1800
-        case "Orthopedics":
+        case "orthopedic":
             return 1200
-        case "Pediatrics":
-            return 1000
+        case "dermatologist":
+            return 800
+        case "general physician":
+            return 900
         default:
+            print("DEBUG: No specialty match found, using default fee")
             return 1000
         }
     }
@@ -138,7 +143,7 @@ struct BookAppointmentView: View {
                         
                         Spacer()
                         
-                        Text("₹1000")
+                        Text("₹\(consultationFee)")
                             .font(.title3)
                             .fontWeight(.semibold)
                             .foregroundColor(colorScheme == .dark ? .white : .primary)

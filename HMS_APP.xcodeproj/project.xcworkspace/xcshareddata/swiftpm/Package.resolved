@@ -1,5 +1,5 @@
 {
-  "originHash" : "9a21f1a4824702acd4ddb8d1f99253868537b6e32ce24c65e03d4e5814720459",
+  "originHash" : "5bf84cf9fc4dc677c5c60a2a0832e4f5f0a765f6868b95c36a59e7b48711d5a9",
   "pins" : [
     {
       "identity" : "abseil-cpp-binary",
@@ -31,7 +31,7 @@
     {
       "identity" : "firebase-ios-sdk",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/firebase/firebase-ios-sdk",
+      "location" : "https://github.com/firebase/firebase-ios-sdk.git",
       "state" : {
         "revision" : "fbd463894af94d90eb4d6a4e54080459a8179519",
         "version" : "11.12.0"
@@ -130,7 +130,7 @@
     {
       "identity" : "razorpay-pod",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/razorpay/razorpay-pod",
+      "location" : "https://github.com/razorpay/razorpay-pod.git",
       "state" : {
         "revision" : "7cc84246737e12abcbeb6fe5da9e4654375c8bf0",
         "version" : "1.4.0"
@@ -211,7 +211,7 @@
     {
       "identity" : "swift-markdown-ui",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/gonzalezreal/swift-markdown-ui",
+      "location" : "https://github.com/gonzalezreal/swift-markdown-ui.git",
       "state" : {
         "revision" : "5f613358148239d0292c0cef674a3c2314737f9e",
         "version" : "2.4.1"
