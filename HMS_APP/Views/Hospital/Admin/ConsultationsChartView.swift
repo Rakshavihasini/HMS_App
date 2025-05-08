@@ -79,15 +79,28 @@ struct ConsultationsChartView: View {
                             .foregroundColor(currentTheme.primary)
                     }
                     
+                    // Enable the right arrow only when viewing past days (not current day)
                     Button(action: {
                         withAnimation {
-                            selectedDate = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) ?? selectedDate
-                            processAppointmentData()
+                            // Only allow moving forward if we're not already at today
+                            if !Calendar.current.isDateInToday(selectedDate) {
+                                // Calculate next date but don't go beyond today
+                                let nextDate = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) ?? selectedDate
+                                if Calendar.current.isDateInToday(nextDate) || Calendar.current.compare(nextDate, to: Date(), toGranularity: .day) == .orderedAscending {
+                                    selectedDate = nextDate
+                                    processAppointmentData()
+                                } else {
+                                    // If next date would be in the future, jump to today instead
+                                    selectedDate = Date()
+                                    processAppointmentData()
+                                }
+                            }
                         }
                     }) {
                         Image(systemName: "chevron.right")
-                            .foregroundColor(currentTheme.primary)
+                            .foregroundColor(Calendar.current.isDateInToday(selectedDate) ? Color.gray.opacity(0.5) : currentTheme.primary)
                     }
+                    .disabled(Calendar.current.isDateInToday(selectedDate))
                 }
             }
             
