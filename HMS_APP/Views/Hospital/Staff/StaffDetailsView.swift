@@ -144,9 +144,41 @@ struct StaffDetailsView: View {
             .sheet(isPresented: $isPresentingEditView) {
                 // Handle edit view based on type
                 if staff.staffRole == "Doctor" {
-                    Text("Edit Doctor View") // Replace with actual EditDoctorView
+                    // Create a Doctor object from Staff data for editing
+                    let doctor = Doctor(
+                        id: staff.id,
+                        name: staff.name,
+                        number: nil,
+                        email: staff.email,
+                        speciality: staff.educationalQualification ?? "",
+                        licenseRegNo: nil,
+                        smc: nil,
+                        gender: nil,
+                        dateOfBirth: staff.dateOfBirth,
+                        yearOfRegistration: nil,
+                        schedule: nil
+                    )
+                    
+                    EditDoctorView(doctor: doctor) { updatedDoctor in
+                        // Create a new staff instance with updated data
+                        self.staff = Staff(
+                            id: self.staff.id,
+                            name: updatedDoctor.name,
+                            email: updatedDoctor.email,
+                            dateOfBirth: updatedDoctor.dateOfBirth,
+                            joinDate: self.staff.joinDate,
+                            educationalQualification: updatedDoctor.speciality,
+                            certificates: self.staff.certificates,
+                            staffRole: self.staff.staffRole,
+                            status: self.staff.status
+                        )
+                        self.shouldRefreshList = true
+                    }
                 } else {
-                    Text("Edit Staff View") // Replace with actual EditStaffView
+                    EditStaffView(staff: staff) { updatedStaff in
+                        self.staff = updatedStaff
+                        self.shouldRefreshList = true
+                    }
                 }
             }
             .alert(isPresented: $showRemoveConfirmation) {

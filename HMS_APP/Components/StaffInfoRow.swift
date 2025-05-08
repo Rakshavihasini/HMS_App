@@ -15,11 +15,12 @@ struct StaffInfoRow: View {
     var body: some View {
         HStack {
             Image(systemName: icon)
-                .foregroundColor(theme.secondary)
-            VStack(alignment: .leading, spacing: 2) {
+                .foregroundColor(theme.primary)
+                .font(.system(size: 16))
+            VStack(alignment: .leading, spacing: 4) {
                 Text(label)
-                    .font(.caption)
-                    .foregroundColor(theme.secondary)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(theme.text.opacity(0.8))
                 Text(value)
                     .font(.body)
                     .foregroundColor(theme.text)
