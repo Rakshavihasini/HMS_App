@@ -369,8 +369,10 @@ struct DoctorSlotManagerView: View {
     let timeSlots = [
         "09:00 AM", "09:30 AM", "10:00 AM",
         "10:30 AM", "11:00 AM", "11:30 AM",
+        "12:00 PM", "12:30 PM", "01:00 PM",
+        "01:30 PM", "02:00 PM", "02:30 PM",
         "03:00 PM", "03:30 PM", "04:00 PM",
-        "04:30 PM", "05:00 PM", "05:30 PM"
+        "04:30 PM"
     ]
     
     var body: some View {
@@ -499,7 +501,7 @@ struct DoctorSlotManagerView: View {
                             SlotSection(
                                 title: "Afternoon Slots",
                                 icon: "sunset.fill",
-                                slots: Array(timeSlots.suffix(6)),
+                                slots: Array(timeSlots.suffix(10)),
                                 date: selectedDate,
                                 isFullDayBlocked: isDateInFullDayLeaves(selectedDate),
                                 leaveColor: redLeaveColor,
@@ -936,7 +938,7 @@ struct DoctorSlotManagerView: View {
         
         // Add afternoon slots to blocked slots
         var set = currentSlots
-        for slot in timeSlots.suffix(6) {
+        for slot in timeSlots.suffix(10) {
             set.insert(slot)
         }
         leaveTimeSlots[selectedDate] = set
