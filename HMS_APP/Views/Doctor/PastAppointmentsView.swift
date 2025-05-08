@@ -113,15 +113,19 @@ struct PastAppointmentsCalendarView: View {
                             Calendar.current.isDate($0, inSameDayAs: date)
                         }
                         let isSelected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
+                        let isPastOrToday = date <= Date()
                         
                         CalendarDayView(
                             day: day,
                             isSelected: isSelected,
                             hasAppointment: hasAppointment,
-                            theme: theme
+                            theme: theme,
+                            isFuture: !isPastOrToday
                         )
                         .onTapGesture {
-                            selectedDate = date
+                            if isPastOrToday {
+                                selectedDate = date
+                            }
                         }
                     }
                 }
@@ -226,6 +230,7 @@ struct CalendarDayView: View {
     let isSelected: Bool
     let hasAppointment: Bool
     let theme: Theme
+    var isFuture: Bool = false
     
     var body: some View {
         ZStack {
@@ -235,7 +240,7 @@ struct CalendarDayView: View {
             
             Text("\(day)")
                 .font(.system(size: 16, weight: isSelected ? .bold : .regular))
-                .foregroundColor(isSelected ? .white : theme.text)
+                .foregroundColor(isSelected ? .white : isFuture ? theme.secondary.opacity(0.5) : theme.text)
             
             // Indicator for days with appointments
             if hasAppointment && !isSelected {
@@ -246,10 +251,11 @@ struct CalendarDayView: View {
             }
         }
         .frame(height: 45)
+        .opacity(isFuture ? 0.5 : 1.0)
     }
 }
 
 #Preview {
     PastAppointmentsCalendarView()
         .environmentObject(DoctorManager())
-} 
+}
