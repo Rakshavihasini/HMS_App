@@ -27,52 +27,35 @@ struct PatientDocumentsView: View {
     @State private var documentToDelete: PatientDocument? = nil
     @State private var showingMedicalRecordsChat: Bool = false
     @State private var selectedDocumentURL: URL? = nil
+    @State private var selectedTab: Int = 0
+    @StateObject private var patientManager = PatientManager()
     
     // MARK: - Body
     
     var body: some View {
-        ZStack {
-            // Main content
-            if isLoading {
-                loadingView()
-            } else if documents.isEmpty {
-                emptyStateView()
+        VStack(spacing: 0) {
+            // Tab selector
+            Picker("View", selection: $selectedTab) {
+                Text("Documents").tag(0)
+                Text("Past Appointments").tag(1)
+            }
+            .pickerStyle(SegmentedPickerStyle())
+            .padding()
+            
+            // Content based on selected tab
+            if selectedTab == 0 {
+                documentsTabView()
             } else {
-                documentListView()
-            }
-            
-            // Upload progress overlay
-            if showingUploadProgress {
-                uploadProgressView()
-                    .transition(.opacity)
-            }
-            
-            // Only keep the upload FAB, remove chat button
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    
-                    // Upload button
-                    Button(action: {
-                        showingDocumentPicker = true
-                    }) {
-                        Image(systemName: "plus")
-                            .font(.title2)
-                            .foregroundColor(.white)
-                            .padding()
-                            .background(Circle().fill(Color.blue))
-                            .shadow(radius: 3)
-                    }
-                    .padding()
-                    .disabled(isUploading)
-                }
+                PatientPastAppointmentsCalendarView()
+                    .environmentObject(patientManager)
             }
         }
         .background(colorScheme == .dark ? Theme.dark.background : Theme.light.background)
-        .navigationTitle(title ?? "Patient Documents")
+        .navigationTitle(title ?? (selectedTab == 0 ? "Patient Documents" : "Past Appointments"))
         .onAppear {
-            fetchDocuments()
+            if selectedTab == 0 {
+                fetchDocuments()
+            }
         }
         .alert(isPresented: $showingError) {
             Alert(
@@ -116,6 +99,49 @@ struct PatientDocumentsView: View {
                 },
                 secondaryButton: .cancel()
             )
+        }
+    }
+    
+    // MARK: - Documents Tab View
+    
+    private func documentsTabView() -> some View {
+        ZStack {
+            // Main content
+            if isLoading {
+                loadingView()
+            } else if documents.isEmpty {
+                emptyStateView()
+            } else {
+                documentListView()
+            }
+            
+            // Upload progress overlay
+            if showingUploadProgress {
+                uploadProgressView()
+                    .transition(.opacity)
+            }
+            
+            // Only keep the upload FAB, remove chat button
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    
+                    // Upload button
+                    Button(action: {
+                        showingDocumentPicker = true
+                    }) {
+                        Image(systemName: "plus")
+                            .font(.title2)
+                            .foregroundColor(.white)
+                            .padding()
+                            .background(Circle().fill(Color.blue))
+                            .shadow(radius: 3)
+                    }
+                    .padding()
+                    .disabled(isUploading)
+                }
+            }
         }
     }
     

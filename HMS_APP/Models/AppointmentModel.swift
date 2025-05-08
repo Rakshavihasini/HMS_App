@@ -276,6 +276,53 @@ class Appointment: ObservableObject {
         }
     }
     
+    @MainActor
+    func fetchAppointmentsForPatient(for patientId: String) async {
+        isLoading = true
+        error = nil
+        
+        do {
+            let query = db.collection("\(dbName)_appointments").whereField("patId", isEqualTo: patientId)
+            let snapshot = try await query.getDocuments()
+            
+            var upcoming: [AppointmentData] = []
+            var past: [AppointmentData] = []
+            
+            for document in snapshot.documents {
+                if let appointment = parseAppointment(document: document) {
+                    if appointment.isUpcoming {
+                        upcoming.append(appointment)
+                    } else {
+                        past.append(appointment)
+                    }
+                }
+            }
+            
+            // Sort upcoming appointments by date (earliest first)
+            upcoming.sort { (a, b) -> Bool in
+                guard let dateA = a.appointmentDateTime, let dateB = b.appointmentDateTime else {
+                    return false
+                }
+                return dateA < dateB
+            }
+            
+            // Sort past appointments by date (most recent first)
+            past.sort { (a, b) -> Bool in
+                guard let dateA = a.appointmentDateTime, let dateB = b.appointmentDateTime else {
+                    return false
+                }
+                return dateA > dateB
+            }
+            
+            self.upcomingAppointments = upcoming
+            self.pastAppointments = past
+            self.isLoading = false
+        } catch {
+            self.isLoading = false
+            self.error = "Error fetching appointments: \(error.localizedDescription)"
+        }
+    }
+    
     private func parseAppointment(document: QueryDocumentSnapshot) -> AppointmentData? {
         let data = document.data()
         
