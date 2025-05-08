@@ -183,6 +183,16 @@ struct DashboardContent: View {
                 await appointmentViewModel.fetchAppointments(for: doctorId)
             }
         }
+        .onAppear {
+            // Check if data needs to be loaded
+            if appointmentViewModel.upcomingAppointments.isEmpty && appointmentViewModel.pastAppointments.isEmpty {
+                Task {
+                    if let userInfo = doctorManager.currentUserInfo, let doctorId = userInfo["id"] as? String {
+                        await appointmentViewModel.fetchAppointments(for: doctorId)
+                    }
+                }
+            }
+        }
     }
 }
 
