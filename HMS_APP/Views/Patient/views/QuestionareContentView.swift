@@ -11,6 +11,7 @@ import FirebaseVertexAI
 
 // Share this component across the app
 struct SymptomButton: View {
+    @Environment(\.colorScheme) var colorScheme
     let symptom: String
     let isSelected: Bool
     let action: () -> Void
@@ -20,14 +21,15 @@ struct SymptomButton: View {
             HStack {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                 Text(symptom)
-                    .foregroundColor(isSelected ? .blue : .primary)
+                    .foregroundColor(isSelected ? (colorScheme == .dark ? Theme.dark.primary : Theme.light.primary) : (colorScheme == .dark ? .white : .primary))
             }
             .padding()
             .frame(maxWidth: .infinity)
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(isSelected ? Color.blue : Color.gray.opacity(0.3), lineWidth: 1)
+                    .stroke(isSelected ? (colorScheme == .dark ? Theme.dark.primary : Theme.light.primary) : Color.gray.opacity(0.3), lineWidth: 1)
             )
+            .background(colorScheme == .dark ? Color(.systemGray6) : Color(.systemBackground))
         }
     }
 }
@@ -35,51 +37,44 @@ struct SymptomButton: View {
 struct QuestionaireContentView: View {
     @StateObject private var viewModel = SymptomCheckerViewModel()
     @Environment(\.presentationMode) var presentationMode
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
-        VStack(spacing: 20) {
-            HStack {
-                Button(action: {
-                    presentationMode.wrappedValue.dismiss()
-                }) {
-                    HStack(spacing: 5) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .semibold))
-                        Text("Back")
+        NavigationView {
+            ZStack {
+                (colorScheme == .dark ? Theme.dark.background : Theme.light.background)
+                    .ignoresSafeArea()
+                
+                VStack(spacing: 20) {
+                    // Title centered
+                    Text("Symptom Checker")
+                        .font(.headline)
+                        .foregroundColor(colorScheme == .dark ? .white : .primary)
+                        .padding(.horizontal)
+                        .padding(.top, 10)
+                    
+                    if viewModel.isLoading {
+                        Spacer()
+                        VStack {
+                            ProgressView()
+                                .padding(.bottom, 10)
+                            Text("Processing...")
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                    } else if let error = viewModel.error {
+                        ErrorView(error: error)
+                    } else if viewModel.report != nil {
+                        ReportView(report: viewModel.report!, viewModel: viewModel)
+                    } else if viewModel.questions.isEmpty {
+                        InitialSymptomsView(viewModel: viewModel)
+                    } else {
+                        QuestionnaireView(viewModel: viewModel)
                     }
-                    .foregroundColor(.blue)
                 }
-                
-                Spacer()
-                
-//                Text("Symptom Checker")
-//                    .font(.headline)
-                
-                Spacer()
             }
-            .padding(.horizontal)
-            .padding(.top, 10)
-            
-            if viewModel.isLoading {
-                Spacer()
-                VStack {
-                    ProgressView()
-                        .padding(.bottom, 10)
-                    Text("Processing...")
-                        .foregroundColor(.secondary)
-                }
-                Spacer()
-            } else if let error = viewModel.error {
-                ErrorView(error: error)
-            } else if viewModel.report != nil {
-                ReportView(report: viewModel.report!, viewModel: viewModel)
-            } else if viewModel.questions.isEmpty {
-                InitialSymptomsView(viewModel: viewModel)
-            } else {
-                QuestionnaireView(viewModel: viewModel)
-            }
+            .navigationBarHidden(true)
         }
-        .navigationBarHidden(true)
     }
 }
 
@@ -88,6 +83,7 @@ struct InitialSymptomsView: View {
     @State private var searchText = ""
     @State private var description = ""
     @State private var showValidationAlert = false
+    @Environment(\.colorScheme) var colorScheme
     
     var filteredSymptoms: [String] {
         if searchText.isEmpty {
@@ -105,6 +101,7 @@ struct InitialSymptomsView: View {
         VStack(alignment: .leading, spacing: 20) {
             Text("What symptoms are you experiencing?")
                 .font(.system(size: 24, weight: .bold))
+                .foregroundColor(colorScheme == .dark ? .white : .primary)
                 .padding(.horizontal)
             
             SearchBar(text: $searchText)
@@ -132,6 +129,7 @@ struct InitialSymptomsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Additional details:")
                     .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(colorScheme == .dark ? .white : .primary)
                     .padding(.horizontal)
                 
                 TextField("Describe your symptoms in detail (minimum 10 characters)", text: $description, axis: .vertical)
@@ -168,7 +166,7 @@ struct InitialSymptomsView: View {
                     .font(.system(size: 18, weight: .semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(isValidInput ? Color.blue : Color.gray)
+                    .background(isValidInput ? (colorScheme == .dark ? Theme.dark.primary : Theme.light.primary) : Color.gray)
                     .foregroundColor(.white)
                     .clipShape(Capsule())
             }
@@ -190,6 +188,7 @@ struct QuestionnaireView: View {
     @State private var answer = ""
     @State private var painLevel = 5
     @State private var showValidationAlert = false
+    @Environment(\.colorScheme) var colorScheme
     
     var currentQuestion: Question {
         guard viewModel.currentQuestionIndex < viewModel.questions.count else {
@@ -221,13 +220,39 @@ struct QuestionnaireView: View {
     
     var body: some View {
         VStack(spacing: 20) {
-            // Progress indicator
-            ProgressView(value: progressValue)
-                .tint(.blue)
-                .padding()
+            // Top navigation with progress indicator
+            VStack(spacing: 12) {
+                // Progress indicator with navigation buttons
+                HStack {
+                    if viewModel.currentQuestionIndex > 0 {
+                        Button(action: {
+                            viewModel.previousQuestion()
+                            answer = ""
+                        }) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "chevron.left")
+                                Text("Previous")
+                            }
+                            .foregroundColor(colorScheme == .dark ? Theme.dark.primary : Theme.light.primary)
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    Text("\(viewModel.currentQuestionIndex + 1)/\(viewModel.questions.count)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal)
+                
+                ProgressView(value: progressValue)
+                    .tint(colorScheme == .dark ? Theme.dark.primary : Theme.light.primary)
+            }
+            .padding(.bottom, 10)
             
             Text(currentQuestion.text)
                 .font(.system(size: 20, weight: .bold))
+                .foregroundColor(colorScheme == .dark ? .white : .primary)
                 .padding(.horizontal)
                 .multilineTextAlignment(.center)
             
@@ -245,15 +270,15 @@ struct QuestionnaireView: View {
             }
             
             Spacer()
-            
-            navigationButtons
         }
+        .background(colorScheme == .dark ? Theme.dark.background : Theme.light.background)
     }
     
     private var painScaleView: some View {
         VStack(spacing: 20) {
             Text("Pain Level: \(painLevel)")
                 .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(colorScheme == .dark ? .white : .primary)
             
             Text(painLevelDescription(for: painLevel))
                 .foregroundColor(painLevelColor(for: painLevel))
@@ -267,16 +292,17 @@ struct QuestionnaireView: View {
             .accentColor(painLevelColor(for: painLevel))
             
             HStack {
-                Text("No Pain").font(.caption)
+                Text("No Pain").font(.caption).foregroundColor(colorScheme == .dark ? .white : .primary)
                 Spacer()
-                Text("Severe").font(.caption)
+                Text("Severe").font(.caption).foregroundColor(colorScheme == .dark ? .white : .primary)
                 Spacer()
-                Text("Worst").font(.caption)
+                Text("Worst").font(.caption).foregroundColor(colorScheme == .dark ? .white : .primary)
             }
             .padding(.horizontal)
             
             Text(painLevelExplanation(for: painLevel))
                 .font(.caption)
+                .foregroundColor(colorScheme == .dark ? .white : .gray)
                 .padding(.horizontal)
                 .multilineTextAlignment(.center)
             
@@ -297,10 +323,10 @@ struct QuestionnaireView: View {
                         .padding()
                         .background(
                             RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color.blue, lineWidth: 1.5)
+                                .stroke(colorScheme == .dark ? Theme.dark.primary : Theme.light.primary, lineWidth: 1.5)
                         )
                 }
-                .foregroundColor(.primary)
+                .foregroundColor(colorScheme == .dark ? .white : .primary)
             }
         }
         .padding(.horizontal)
@@ -319,10 +345,10 @@ struct QuestionnaireView: View {
                         .padding()
                         .background(
                             RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color.blue, lineWidth: 1.5)
+                                .stroke(colorScheme == .dark ? Theme.dark.primary : Theme.light.primary, lineWidth: 1.5)
                         )
                 }
-                .foregroundColor(.primary)
+                .foregroundColor(colorScheme == .dark ? .white : .primary)
             }
         }
         .padding(.horizontal)
@@ -363,7 +389,7 @@ struct QuestionnaireView: View {
                 .font(.system(size: 18, weight: .semibold))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .background(isValidAnswer ? Color.blue : Color.gray)
+                .background(isValidAnswer ? (colorScheme == .dark ? Theme.dark.primary : Theme.light.primary) : Color.gray)
                 .foregroundColor(.white)
                 .clipShape(Capsule())
         }
@@ -376,27 +402,6 @@ struct QuestionnaireView: View {
                 dismissButton: .default(Text("OK"))
             )
         }
-    }
-    
-    private var navigationButtons: some View {
-        HStack {
-            if viewModel.currentQuestionIndex > 0 {
-                Button(action: {
-                    viewModel.previousQuestion()
-                    answer = ""
-                }) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "chevron.left")
-                        Text("Back")
-                    }
-                    .foregroundColor(.blue)
-                }
-                .padding()
-            }
-            
-            Spacer()
-        }
-        .padding(.horizontal)
     }
     
     func painLevelColor(for level: Int) -> Color {
@@ -448,6 +453,7 @@ struct QuestionnaireView: View {
 struct ReportView: View {
     let report: AssessmentReport
     @ObservedObject var viewModel: SymptomCheckerViewModel
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         ScrollView {
@@ -457,6 +463,7 @@ struct ReportView: View {
                     Text("Assessment Results")
                         .font(.title2)
                         .fontWeight(.bold)
+                        .foregroundColor(colorScheme == .dark ? .white : .primary)
                     
                     Spacer()
                     
@@ -475,6 +482,7 @@ struct ReportView: View {
                         Text("Possible Conditions")
                             .font(.headline)
                             .fontWeight(.semibold)
+                            .foregroundColor(colorScheme == .dark ? .white : .primary)
                     }
                     
                     ForEach(report.possibleConditions, id: \.self) { condition in
@@ -484,6 +492,7 @@ struct ReportView: View {
                                 .font(.system(size: 18, weight: .bold))
                             
                             Text(condition)
+                                .foregroundColor(colorScheme == .dark ? .white : .primary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
@@ -492,7 +501,7 @@ struct ReportView: View {
                 .frame(maxWidth: .infinity)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(.systemBackground))
+                        .fill(colorScheme == .dark ? Color(.systemGray6) : Color(.systemBackground))
                         .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
                 )
                 .padding(.horizontal)
@@ -507,6 +516,7 @@ struct ReportView: View {
                         Text("Recommendations")
                             .font(.headline)
                             .fontWeight(.semibold)
+                            .foregroundColor(colorScheme == .dark ? .white : .primary)
                     }
                     
                     ForEach(report.recommendations, id: \.self) { recommendation in
@@ -516,6 +526,7 @@ struct ReportView: View {
                                 .font(.system(size: 18, weight: .bold))
                             
                             Text(recommendation)
+                                .foregroundColor(colorScheme == .dark ? .white : .primary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
@@ -524,7 +535,7 @@ struct ReportView: View {
                 .frame(maxWidth: .infinity)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(.systemBackground))
+                        .fill(colorScheme == .dark ? Color(.systemGray6) : Color(.systemBackground))
                         .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
                 )
                 .padding(.horizontal)
@@ -539,6 +550,7 @@ struct ReportView: View {
                         Text("Next Steps")
                             .font(.headline)
                             .fontWeight(.semibold)
+                            .foregroundColor(colorScheme == .dark ? .white : .primary)
                     }
                     
                     ForEach(report.followUpSteps, id: \.self) { step in
@@ -548,6 +560,7 @@ struct ReportView: View {
                                 .font(.system(size: 18, weight: .bold))
                             
                             Text(step)
+                                .foregroundColor(colorScheme == .dark ? .white : .primary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
@@ -556,46 +569,52 @@ struct ReportView: View {
                 .frame(maxWidth: .infinity)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(.systemBackground))
+                        .fill(colorScheme == .dark ? Color(.systemGray6) : Color(.systemBackground))
                         .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
                 )
                 .padding(.horizontal)
                 
                 // Doctor Recommendations
-                if !viewModel.recommendedDoctors.isEmpty {
-                    VStack(alignment: .leading, spacing: 16) {
-                        HStack {
-                            Image(systemName: "person.text.rectangle")
-                                .font(.title2)
-                                .foregroundColor(.purple)
-                            
-                            Text("Recommended Doctors")
-                                .font(.headline)
-                                .fontWeight(.semibold)
-                        }
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack {
+                        Image(systemName: "person.text.rectangle")
+                            .font(.title2)
+                            .foregroundColor(.purple)
                         
-                        ForEach(viewModel.recommendedDoctors.flatMap { $0.doctors.prefix(3) }, id: \.id) { doctor in
+                        Text("Recommended Doctors")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(colorScheme == .dark ? .white : .primary)
+                    }
+                    
+                    if viewModel.isLoadingDoctors {
+                        ProgressView()
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding()
+                    } else if viewModel.recommendedDoctors.isEmpty {
+                        Text("Loading recommended doctors...")
+                            .foregroundColor(.secondary)
+                            .padding()
+                            .onAppear {
+                                Task {
+                                    // Fetch doctors based on possible conditions
+                                    await viewModel.fetchDoctorsByConditions(report.possibleConditions)
+                                }
+                            }
+                    } else {
+                        ForEach(viewModel.recommendedDoctors, id: \.id) { doctor in
                             DoctorCardView(doctor: doctor)
                         }
-                        
-                        Button(action: {
-                            // Add action to view all doctors
-                        }) {
-                            Text("View All Available Doctors")
-                                .font(.subheadline)
-                                .foregroundColor(.blue)
-                        }
-                        .padding(.top, 4)
                     }
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(.systemBackground))
-                            .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
-                    )
-                    .padding(.horizontal)
                 }
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(colorScheme == .dark ? Color(.systemGray6) : Color(.systemBackground))
+                        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+                )
+                .padding(.horizontal)
                 
                 // Disclaimer
                 Text("This assessment is for informational purposes only and does not constitute medical advice. Please consult with a healthcare professional.")
@@ -615,30 +634,19 @@ struct ReportView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.blue)
+                        .background(colorScheme == .dark ? Theme.dark.primary : Theme.light.primary)
                         .foregroundColor(.white)
                         .cornerRadius(10)
                     }.padding(.horizontal)
-                    //
-                    //                    Button(action: {
-                    //                        // Add action to consult doctor
-                    //                    }) {
-                    //                        HStack {
-                    //                            Image(systemName: "video")
-                    //                            Text("Consult Doctor")
-                    //                        }
-                    //                        .frame(maxWidth: .infinity)
-                    //                        .padding()
-                    //                        .background(Color.green)
-                    //                        .foregroundColor(.white)
-                    //                        .cornerRadius(10)
-                    //                    }
-                    //                }
-                    //                .padding(.horizontal)
-                    //                .padding(.bottom)
                 }
             }
             .padding(.vertical)
+            .onAppear {
+                // Trigger doctor recommendations when the report appears
+                Task {
+                    await viewModel.fetchDoctorsByConditions(report.possibleConditions)
+                }
+            }
         }
     }
 }
@@ -646,6 +654,8 @@ struct ReportView: View {
 // Doctor Card View for showing doctor recommendations
 struct DoctorCardView: View {
     let doctor: DoctorProfile
+    @State private var navigateToBooking = false
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         HStack(spacing: 12) {
@@ -658,6 +668,7 @@ struct DoctorCardView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Dr. \(doctor.name)")
                     .font(.headline)
+                    .foregroundColor(colorScheme == .dark ? .white : .primary)
                 
                 Text(doctor.speciality)
                     .font(.subheadline)
@@ -672,15 +683,22 @@ struct DoctorCardView: View {
             
             Spacer()
             
-            Button(action: {
-                // Add action to book appointment
-            }) {
+            NavigationLink(destination: 
+                BookAppointmentView(
+                    doctor: doctor,
+                    patient: Patient(
+                        id: UserDefaults.standard.string(forKey: "userId") ?? "",
+                        name: UserDefaults.standard.string(forKey: "userName") ?? "Patient",
+                        email: UserDefaults.standard.string(forKey: "userEmail") ?? ""
+                    )
+                )
+            ) {
                 Text("Book")
                     .font(.caption)
                     .fontWeight(.medium)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(Color.blue)
+                    .background(colorScheme == .dark ? Theme.dark.primary : Theme.light.primary)
                     .foregroundColor(.white)
                     .cornerRadius(8)
             }
@@ -688,6 +706,7 @@ struct DoctorCardView: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 10)
+                .fill(colorScheme == .dark ? Color(.systemGray6) : Color(.systemBackground))
                 .stroke(Color.gray.opacity(0.2), lineWidth: 1)
         )
     }
@@ -695,6 +714,7 @@ struct DoctorCardView: View {
 
 struct UrgencyBadge: View {
     let level: String
+    @Environment(\.colorScheme) var colorScheme
     
     var color: Color {
         switch level {
@@ -730,6 +750,7 @@ struct UrgencyBadge: View {
 
 struct ErrorView: View {
     let error: String
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         VStack(spacing: 20) {
@@ -740,8 +761,10 @@ struct ErrorView: View {
             Text("Error")
                 .font(.title)
                 .fontWeight(.bold)
+                .foregroundColor(colorScheme == .dark ? .white : .primary)
             
             Text(error)
+                .foregroundColor(colorScheme == .dark ? .white : .primary)
                 .multilineTextAlignment(.center)
                 .padding()
             
@@ -749,11 +772,12 @@ struct ErrorView: View {
                 // Add retry logic here
             }
             .padding()
-            .background(Color.blue)
+            .background(colorScheme == .dark ? Theme.dark.primary : Theme.light.primary)
             .foregroundColor(.white)
             .cornerRadius(8)
         }
         .padding()
+        .background(colorScheme == .dark ? Theme.dark.background : Theme.light.background)
     }
 }
 
