@@ -75,10 +75,10 @@ struct ConsultationDetailView: View {
                 // Summary cards
                 VStack(spacing: 16) {
                     HStack {
-                        Text("Consultation Analytics")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(currentTheme.text)
+//                        Text("Consultation Analytics")
+//                            .font(.title2)
+//                            .fontWeight(.bold)
+//                            .foregroundColor(currentTheme.text)
                         
                         Spacer()
                         
@@ -105,6 +105,7 @@ struct ConsultationDetailView: View {
                             : nil
                         )
                     }
+                    
                     
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 16)], spacing: 16) {
                         SummaryCard(

@@ -139,10 +139,10 @@ struct RevenueDetailView: View {
              VStack(alignment: .leading, spacing: 16) {
                  // Header with share button
                  HStack {
-                     Text("Revenue Analytics")
-                         .font(.title2)
-                         .fontWeight(.bold)
-                         .foregroundColor(currentTheme.text)
+//                     Text("Revenue Analytics")
+//                         .font(.title2)
+//                         .fontWeight(.bold)
+//                         .foregroundColor(currentTheme.text)
                      
                      Spacer()
                      
@@ -156,7 +156,7 @@ struct RevenueDetailView: View {
                          }
                          .padding(.horizontal, 12)
                          .padding(.vertical, 8)
-                         .background(currentTheme.tertiary)
+                         .background(currentTheme.primary)
                          .foregroundColor(.white)
                          .cornerRadius(8)
                      }
