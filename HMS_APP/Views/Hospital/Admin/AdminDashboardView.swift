@@ -41,7 +41,7 @@ struct AdminDashboardView: View {
                     // Personalized Greeting
                     HStack {
                         Text(greeting)
-                            .font(.title2)
+                            .font(.title)
                             .fontWeight(.bold)
                             .foregroundColor(currentTheme.text)
                             .multilineTextAlignment(.leading)

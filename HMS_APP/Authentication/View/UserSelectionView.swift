@@ -80,6 +80,7 @@ struct RoleCard: View {
     let userType: String
     
     @State private var isPressed = false
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         NavigationLink(destination: LoginScreen(userType: userType)) {
@@ -91,18 +92,18 @@ struct RoleCard: View {
                     .frame(width: 56, height: 56)
                     .background(
                         Circle()
-                            .fill(color.opacity(0.1))
+                            .fill(color.opacity(colorScheme == .dark ? 0.2 : 0.1))
                     )
                 
                 // Text Content
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
                         .font(.headline)
-                        .foregroundColor(.primary)
+                        .foregroundColor(colorScheme == .dark ? .white : .primary)
                     
                     Text(description)
                         .font(.subheadline)
-                        .foregroundColor(.gray)
+                        .foregroundColor(colorScheme == .dark ? .gray.opacity(0.8) : .gray)
                         .lineLimit(2)
                 }
                 
@@ -110,14 +111,14 @@ struct RoleCard: View {
                 
                 // Arrow
                 Image(systemName: "chevron.right")
-                    .foregroundColor(.gray)
+                    .foregroundColor(colorScheme == .dark ? .gray.opacity(0.8) : .gray)
                     .font(.system(size: 14, weight: .semibold))
             }
             .padding()
-            .background(Color(.systemBackground))
+            .background(colorScheme == .dark ? Color(.systemGray6) : Color(.systemBackground))
             .cornerRadius(16)
             .shadow(
-                color: Color.black.opacity(0.05),
+                color: Color.black.opacity(colorScheme == .dark ? 0.2 : 0.05),
                 radius: 10,
                 x: 0,
                 y: 5
