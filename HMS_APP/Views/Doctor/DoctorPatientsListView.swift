@@ -31,9 +31,19 @@ struct DoctorPatientsListView: View {
                 .padding(.top, 10)
                 
                 // Search Bar
-                SearchBar(text: $searchText)
-                    .padding(.horizontal)
-                    .padding(.vertical, 10)
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.gray)
+                    TextField("Search Patients...", text: $searchText)
+                        .textFieldStyle(PlainTextFieldStyle())
+                }
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(colorScheme == .dark ? Color(.systemGray6) : Color(.systemBackground))
+                )
+                .padding(.horizontal)
+                .padding(.vertical, 10)
                 
                 if viewModel.isLoading {
                     Spacer()

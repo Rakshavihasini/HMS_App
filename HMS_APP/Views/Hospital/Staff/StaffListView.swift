@@ -154,7 +154,7 @@ struct StaffListView: View {
                     HStack {
                         Image(systemName: "magnifyingglass")
                             .foregroundColor(.gray)
-                        TextField("Search staff...", text: $searchText)
+                        TextField("Search staff", text: $searchText)
                             .textFieldStyle(PlainTextFieldStyle())
                     }
                     .padding()

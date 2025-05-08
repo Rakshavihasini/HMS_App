@@ -19,19 +19,49 @@ struct PatientsListView: View {
             VStack(spacing: 0) {
                 // Header
                 HStack {
-                    Text("Patients")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .foregroundColor(colorScheme == .dark ? .white : .primary)
+                    VStack(alignment: .leading){
+                        Text("Patients")
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+                            .foregroundColor(colorScheme == .dark ? .white : .primary)
+                        Text("Manage your patients")
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                    }
                     Spacer()
+                    // Stats Circle
+                    VStack(alignment: .center) {
+                        Text("\(filteredPatients.count)")
+                            .font(.system(size: 24, weight: .bold))
+                            .foregroundColor(colorScheme == .dark ? Theme.dark.primary : Theme.light.primary)
+                        Text("Total")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                    .padding(12)
+                    .background(
+                        Circle()
+                            .fill(colorScheme == .dark ? Color(.systemGray6) : Color(.systemBackground))
+                            .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+                    )
                 }
                 .padding(.horizontal)
                 .padding(.top, 10)
                 
                 // Search Bar
-                SearchBar(text: $searchText)
-                    .padding(.horizontal)
-                    .padding(.vertical, 10)
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.gray)
+                    TextField("Search Patients", text: $searchText)
+                        .textFieldStyle(PlainTextFieldStyle())
+                }
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(colorScheme == .dark ? Color(.systemGray6) : Color(.systemBackground))
+                )
+                .padding(.horizontal)
+                .padding(.vertical, 10)
                 
                 // Patients List
                 ScrollView {

@@ -389,20 +389,6 @@ struct EditProfileView: View {
                         .scaledToFit()
                         .foregroundColor(.white)
                         .frame(width: 36, height: 36)
-                    
-                    Button(action: {
-                        showImagePicker = true
-                    }) {
-                        Circle()
-                            .fill(Color.blue.opacity(0.8))
-                            .frame(width: 30, height: 30)
-                            .overlay(
-                                Image(systemName: "camera.fill")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.white)
-                            )
-                    }
-                    .offset(x: 30, y: 30)
                 }
                 .padding(.top, 30)
                 
