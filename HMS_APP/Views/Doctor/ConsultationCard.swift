@@ -29,6 +29,11 @@ struct ConsultationCard: View {
         return dateString == today
     }
     
+    // Check if appointment is completed
+    private var isCompleted: Bool {
+        return appointment.status?.rawValue == "COMPLETED"
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header (Time and Status Badge)
@@ -81,16 +86,23 @@ struct ConsultationCard: View {
             
             // Buttons
             HStack(spacing: 10) {
-                // Reschedule Button
-                
-                if isUpcoming {
-                ActionButton(
-                    icon: "calendar.badge.clock",
-                    title: "Reschedule",
-                    action: onReschedule
-                )
-                
-                // Join Button (only for upcoming appointments)
+                if isCompleted {
+                    ActionButton(
+                        icon: "doc.text.magnifyingglass",
+                        title: "View Notes",
+                        filled: true,
+                        action: {
+                            showReadOnlyConsultation = true
+                        }
+                    )
+                } else if isUpcoming {
+                    ActionButton(
+                        icon: "calendar.badge.clock",
+                        title: "Reschedule",
+                        action: onReschedule
+                    )
+                    
+                    // Join Button (only for upcoming appointments)
                     ActionButton(
                         icon: "play.fill",
                         title: "Start Consult",
@@ -100,18 +112,8 @@ struct ConsultationCard: View {
                         },
                         isDisabled: !isToday
                     )
-                }else if isWaiting == true{
+                } else if isWaiting == true {
                     
-                }
-                else{
-                    ActionButton(
-                        icon: "doc.text.magnifyingglass",
-                        title: "View Notes",
-                        filled: true,
-                        action: {
-                            showReadOnlyConsultation = true
-                        }
-                    )
                 }
             }
             .padding(.horizontal, 16)
