@@ -109,33 +109,12 @@ struct AdminDashboardView: View {
                     .padding(.horizontal)
                     .padding(.bottom, 12)
                     
-                    // Recent Notifications
-//                    RecentNotificationsView()
-//                        .padding(.horizontal)
                 }
                 .padding(.top)
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
-//            .toolbar {
-//                ToolbarItem(placement: .navigationBarTrailing) {
-//                    HStack {
-//                        Circle()
-//                            .fill(Color.green)
-//                            .frame(width: 8, height: 8)
-//                        
-//                        CurrentTimeView()
-//                            .font(.subheadline.bold())
-//                    }
-//                }
-//                
-//                ToolbarItem(placement: .navigationBarTrailing) {
-//                    Button(action: {}) {
-//                        Image(systemName: "bell.badge")
-//                            .foregroundColor(currentTheme.primary)
-//                    }
-//                }
-//            }
+
             .background(currentTheme.background.ignoresSafeArea())
         }
     }

@@ -128,6 +128,8 @@ struct StaffStatusCard: View {
                 Text(staff.status?.rawValue ?? "Available")
                     .font(.caption)
                     .foregroundColor(currentTheme.text.opacity(0.6))
+                
+                Spacer()
             }
             
             Text(staff.name)
@@ -137,18 +139,6 @@ struct StaffStatusCard: View {
             Text(staff.staffRole ?? "Staff")
                 .font(.caption)
                 .foregroundColor(currentTheme.text.opacity(0.6))
-            
-            HStack {
-                Spacer()
-                
-                Button(action: onMoreOptions) {
-                    Image(systemName: "ellipsis")
-                        .padding(8)
-                        .background(currentTheme.secondary)
-                        .foregroundColor(currentTheme.text)
-                        .cornerRadius(8)
-                }
-            }
         }
         .padding()
         .frame(width: 160)

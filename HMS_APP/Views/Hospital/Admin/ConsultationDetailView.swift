@@ -181,13 +181,6 @@ struct ConsultationDetailView: View {
                                 .foregroundColor(currentTheme.text)
                             
                             Spacer()
-                            
-                            Button(action: { showingFilterSheet = true }) {
-                                Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
-                                    .font(.subheadline)
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(currentTheme.primary)
                         }
                         
                         Chart(consultationsData) { data in
