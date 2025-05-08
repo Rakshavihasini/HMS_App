@@ -412,8 +412,10 @@ struct BookAppointmentView: View {
                 Text(errorMessage)
             }
             .onAppear {
-            prefetchFullDayLeavesData()
-                fetchAvailableTimeSlots()
+                Task {
+                    await prefetchFullDayLeavesData()
+                    fetchAvailableTimeSlots()
+                }
         }
         .onDisappear {
             // Clean up listener to prevent memory leaks
@@ -421,43 +423,47 @@ struct BookAppointmentView: View {
         }
     }
     
-    private func prefetchFullDayLeavesData() {
+    private func prefetchFullDayLeavesData() async {
         guard let doctorId = doctor.id else { return }
         
-        Task {
-            do {
-                print("DEBUG: Prefetching full day leaves data for doctor \(doctorId)")
-                let db = Firestore.firestore()
-                let docRef = db.collection("hms4_doctors").document(doctorId)
-                let document = try await docRef.getDocument()
+        do {
+            print("DEBUG: [prefetchFullDayLeavesData] Prefetching full day leaves data for doctor \(doctorId)")
+            let db = Firestore.firestore()
+            let docRef = db.collection("hms4_doctors").document(doctorId)
+            let document = try await docRef.getDocument()
+            
+            if document.exists, let data = document.data(),
+               let scheduleData = data["schedule"] as? [String: Any],
+               let fullDayLeaves = scheduleData["fullDayLeaves"] as? [Any] {
                 
-                if document.exists, let data = document.data(),
-                   let scheduleData = data["schedule"] as? [String: Any],
-                   let fullDayLeaves = scheduleData["fullDayLeaves"] as? [Any] {
-                    
-                    var leaveTimestamps: [Double] = []
-                    
-                    for leave in fullDayLeaves {
-                        if let timestamp = leave as? Timestamp {
-                            let leaveDate = timestamp.dateValue()
-                            leaveTimestamps.append(leaveDate.timeIntervalSince1970)
-                            print("DEBUG: Found full day leave timestamp at: \(leaveDate)")
-                        }
-                    }
-                    
-                    // Cache all the leave timestamps for future quick checks
-                    UserDefaults.standard.set(leaveTimestamps, forKey: "fullDayLeaves_\(doctorId)")
-                    
-                    // Force UI refresh if needed
-                    await MainActor.run {
-                        // This will trigger a UI refresh
-                        let currentDate = selectedDate
-                        selectedDate = currentDate
+                var leaveTimestamps: [Double] = []
+                
+                for leave in fullDayLeaves {
+                    if let timestamp = leave as? Timestamp {
+                        let leaveDate = timestamp.dateValue()
+                        leaveTimestamps.append(leaveDate.timeIntervalSince1970)
+                        print("DEBUG: [prefetchFullDayLeavesData] Found full day leave timestamp at: \(leaveDate)")
                     }
                 }
-            } catch {
-                print("DEBUG: Error prefetching full day leaves: \(error)")
+                
+                UserDefaults.standard.set(leaveTimestamps, forKey: "fullDayLeaves_\(doctorId)")
+                print("DEBUG: [prefetchFullDayLeavesData] Cached \(leaveTimestamps.count) leave timestamps for doctor \(doctorId)")
+                
+                // Force UI refresh if needed to update date strip styling
+                await MainActor.run {
+                    let currentDate = self.selectedDate
+                    // Briefly change selectedDate to a dummy value and back to trigger UI updates
+                    self.selectedDate = Date(timeIntervalSince1970: 0) 
+                    self.selectedDate = currentDate
+                    print("DEBUG: [prefetchFullDayLeavesData] Forced UI refresh via selectedDate toggle")
+                }
+            } else {
+                 print("DEBUG: [prefetchFullDayLeavesData] No schedule data or fullDayLeaves found for doctor \(doctorId)")
+                 // Ensure cache is cleared if no leaves are found
+                 UserDefaults.standard.removeObject(forKey: "fullDayLeaves_\(doctorId)")
             }
+        } catch {
+            print("DEBUG: [prefetchFullDayLeavesData] Error prefetching full day leaves: \(error)")
         }
     }
     
@@ -532,6 +538,29 @@ struct BookAppointmentView: View {
         showAllMorningSlots = false
         showAllAfternoonSlots = false
         
+        // First check if the doctor is on full day leave
+        if isDateInFullDayLeaves(selectedDate) {
+            print("DEBUG: Doctor is on full day leave for selected date")
+            availableTimeSlots = []
+            isLoading = false
+            return
+        }
+        
+        // Check for individual time slots blocked
+        if let scheduleData = doctor.schedule,
+           let leaveTimeSlots = scheduleData.leaveTimeSlots {
+            print("DEBUG: Blocked time slots available: \(leaveTimeSlots)")
+            
+            // Get the time slot strings for the selected date
+            let blockedSlotsForDate = getBlockedSlotsForDate(selectedDate, leaveTimeSlots)
+            print("DEBUG: Blocked slots for selected date: \(blockedSlotsForDate)")
+            
+            // Remove blocked time slots from available slots
+            availableTimeSlots.removeAll { timeSlot in
+                blockedSlotsForDate.contains(timeSlot)
+            }
+        }
+        
         // Only filter out past time slots if the selected date is today
         if calendar.isDateInToday(selectedDate) {
             print("DEBUG: Selected date is today, filtering past time slots")
@@ -548,7 +577,7 @@ struct BookAppointmentView: View {
             
             print("DEBUG: Current time: \(timeFormatter.string(from: currentTime))")
             
-            availableTimeSlots = defaultTimeSlots.filter { timeSlot in
+            availableTimeSlots = availableTimeSlots.filter { timeSlot in
                 // Combine today's date with the time slot
                 let slotDateString = "\(todayString) \(timeSlot)"
                 if let slotDate = todayFormatter.date(from: slotDateString) {
@@ -561,60 +590,6 @@ struct BookAppointmentView: View {
             }
             
             print("DEBUG: Available slots after time filtering: \(availableTimeSlots)")
-        } else {
-            print("DEBUG: Selected date is not today, showing all slots")
-        }
-        
-        // Debug doctor data
-        print("DEBUG: Doctor ID: \(doctor.id ?? "nil")")
-        
-        // Check for schedule data and blocked time slots
-        if let scheduleData = doctor.schedule {
-            print("DEBUG: Doctor schedule found")
-            
-            // Check if this day is a full day leave
-            if let fullDayLeaves = scheduleData.fullDayLeaves {
-                print("DEBUG: Full day leaves available: \(fullDayLeaves)")
-                
-                // Get the normalized date for comparison
-                let selectedDateNormalized = calendar.startOfDay(for: selectedDate)
-                
-                // Check if the current date is in full day leaves
-                for leaveDate in fullDayLeaves {
-                    // Try to parse the leave date
-                    if let date = parseDate(leaveDate) {
-                        let leaveDateNormalized = calendar.startOfDay(for: date)
-                        if calendar.isDate(selectedDateNormalized, inSameDayAs: leaveDateNormalized) {
-                            print("DEBUG: Selected date is a full day leave")
-                            availableTimeSlots = []
-                            isLoading = false
-                            return
-                        }
-                    } else if leaveDate == dateString {
-                        // Also try to match the string format directly
-                        print("DEBUG: Selected date is a full day leave (string match)")
-                        availableTimeSlots = []
-                        isLoading = false
-                        return
-                    }
-                }
-            }
-            
-            // Check for individual time slots blocked
-            if let leaveTimeSlots = scheduleData.leaveTimeSlots {
-                print("DEBUG: Blocked time slots available: \(leaveTimeSlots)")
-                
-                // Get the time slot strings for the selected date
-                let blockedSlotsForDate = getBlockedSlotsForDate(selectedDate, leaveTimeSlots)
-                print("DEBUG: Blocked slots for selected date: \(blockedSlotsForDate)")
-                
-                // Remove blocked time slots from available slots
-                for blockedSlot in blockedSlotsForDate {
-                    availableTimeSlots.removeAll { timeSlot in
-                        return timeSlot == blockedSlot
-                    }
-                }
-            }
         }
         
         // Check for existing appointments and set up real-time listener
@@ -677,85 +652,102 @@ struct BookAppointmentView: View {
     
     // Helper function to determine if a date is in full day leaves
     private func isDateInFullDayLeaves(_ date: Date) -> Bool {
-        guard let fullDayLeaves = doctor.schedule?.fullDayLeaves else {
-            return false
-        }
-        
-        let dateString = dateFormatter.string(from: date)
-        
-        // First try string matching
-        if fullDayLeaves.contains(dateString) {
-            return true
-        }
-        
-        // Then try date matching
-        let normalizedDate = calendar.startOfDay(for: date)
-        for leaveDate in fullDayLeaves {
-            if let parsedDate = parseDate(leaveDate) {
-                let leaveDateNormalized = calendar.startOfDay(for: parsedDate)
-                if calendar.isDate(normalizedDate, inSameDayAs: leaveDateNormalized) {
-                    return true
-                }
-            }
-        }
-        
-        // As a final check, fetch and check the raw Firebase data
-        // This is a synchronous check so we need to use a cached result or check asynchronously
-        // and update the UI later
+        let normalizedDateToCompare = calendar.startOfDay(for: date)
+
+        // 1. Primary Check: UserDefaults cache (populated by awaited prefetchFullDayLeavesData)
         if let doctorId = doctor.id {
-            let db = Firestore.firestore()
-            
-            // Check user defaults for a cached list of full day leaves
             let defaults = UserDefaults.standard
             let cachedLeavesKey = "fullDayLeaves_\(doctorId)"
-            
+
             if let cachedLeaveTimestamps = defaults.array(forKey: cachedLeavesKey) as? [Double] {
-                for timestamp in cachedLeaveTimestamps {
-                    let leaveDate = Date(timeIntervalSince1970: timestamp)
-                    if calendar.isDate(normalizedDate, inSameDayAs: leaveDate) {
+                for timestampValue in cachedLeaveTimestamps {
+                    let leaveDate = Date(timeIntervalSince1970: timestampValue)
+                    if calendar.isDate(normalizedDateToCompare, inSameDayAs: calendar.startOfDay(for: leaveDate)) {
+                        print("DEBUG: [isDateInFullDayLeaves] Found full day leave in UserDefaults cache for \(date)")
                         return true
                     }
                 }
+                print("DEBUG: [isDateInFullDayLeaves] Date \(date) not found in UserDefaults cache. Cache count: \(cachedLeaveTimestamps.count)")
+            } else {
+                print("DEBUG: [isDateInFullDayLeaves] UserDefaults cache empty or not found for key \(cachedLeavesKey)")
             }
-            
-            // Start an async task to fetch and cache the full day leaves for future use
-            Task {
+        } else {
+            print("DEBUG: [isDateInFullDayLeaves] Doctor ID is nil, cannot check UserDefaults cache.")
+        }
+
+        // 2. Secondary Check: doctor.schedule.fullDayLeaves (if available and potentially as a fallback)
+        if let schedule = doctor.schedule, let fullDayLeavesArray = schedule.fullDayLeaves { // fullDayLeavesArray is [Any]
+            print("DEBUG: [isDateInFullDayLeaves] Checking doctor.schedule.fullDayLeaves. Count: \(fullDayLeavesArray.count)")
+            // Ensure self.dateFormatter is used for consistency
+            let dateStringForComparison = self.dateFormatter.string(from: date) 
+
+            for leaveItem in fullDayLeavesArray {
+                if let leaveTimestamp = leaveItem as? Timestamp {
+                    let leaveDate = leaveTimestamp.dateValue()
+                    if calendar.isDate(normalizedDateToCompare, inSameDayAs: calendar.startOfDay(for: leaveDate)) {
+                        print("DEBUG: [isDateInFullDayLeaves] Found full day leave in doctor.schedule (Timestamp) for \(date)")
+                        return true
+                    }
+                } else if let leaveDateString = leaveItem as? String {
+                    if leaveDateString == dateStringForComparison {
+                        print("DEBUG: [isDateInFullDayLeaves] Found full day leave in doctor.schedule (String match 'yyyy-MM-dd') for \(date)")
+                        return true
+                    }
+                    if let parsedLeaveDate = parseDate(leaveDateString) {
+                        if calendar.isDate(normalizedDateToCompare, inSameDayAs: calendar.startOfDay(for: parsedLeaveDate)) {
+                            print("DEBUG: [isDateInFullDayLeaves] Found full day leave in doctor.schedule (Parsed String) for \(date)")
+                            return true
+                        }
+                    }
+                }
+            }
+            print("DEBUG: [isDateInFullDayLeaves] Date \(date) not found in doctor.schedule.fullDayLeaves.")
+        } else {
+            print("DEBUG: [isDateInFullDayLeaves] doctor.schedule or doctor.schedule.fullDayLeaves is nil.")
+        }
+        
+        // 3. Async task for background cache update (original logic from the file)
+        // This runs independently and updates the cache for future checks.
+        if let doctorId = doctor.id {
+            Task.detached { // Run as a detached task so it doesn't interfere with UI updates
                 do {
+                    let db = Firestore.firestore()
+                    print("DEBUG: [isDateInFullDayLeaves - async task] Starting background cache update for doctor \(doctorId)")
                     let docRef = db.collection("hms4_doctors").document(doctorId)
                     let document = try await docRef.getDocument()
-                    
+
                     if document.exists, let data = document.data(),
                        let scheduleData = data["schedule"] as? [String: Any],
-                       let fullDayLeaves = scheduleData["fullDayLeaves"] as? [Any] {
+                       let firestoreFullDayLeaves = scheduleData["fullDayLeaves"] as? [Any] {
+
+                        var leaveTimestampsToCache: [Double] = []
+                        var foundMatchInAsyncForCurrentDate = false // Check against the date passed to the function
                         
-                        var leaveTimestamps: [Double] = []
-                        
-                        for leave in fullDayLeaves {
+                        for leave in firestoreFullDayLeaves {
                             if let timestamp = leave as? Timestamp {
-                                let leaveDate = timestamp.dateValue()
-                                leaveTimestamps.append(leaveDate.timeIntervalSince1970)
-                                
-                                // If this leave date matches our query date, note it for UI update
-                                if calendar.isDate(normalizedDate, inSameDayAs: leaveDate) {
-                                    // Cache the result
-                                    defaults.set(leaveTimestamps, forKey: cachedLeavesKey)
-                                    
-                                    // We found a match, but it's too late to affect the current UI drawing
-                                    // The next time the view refreshes, it will use the cached value
-                                    print("DEBUG: Found full day leave in async check, will update UI on next refresh")
+                                let leaveDateFromFirestore = timestamp.dateValue()
+                                leaveTimestampsToCache.append(leaveDateFromFirestore.timeIntervalSince1970)
+                                if self.calendar.isDate(normalizedDateToCompare, inSameDayAs: self.calendar.startOfDay(for: leaveDateFromFirestore)) {
+                                    foundMatchInAsyncForCurrentDate = true
                                 }
                             }
                         }
-                        
-                        // Cache all the leave timestamps for future quick checks
-                        defaults.set(leaveTimestamps, forKey: cachedLeavesKey)
+                        UserDefaults.standard.set(leaveTimestampsToCache, forKey: "fullDayLeaves_\(doctorId)")
+                        if foundMatchInAsyncForCurrentDate {
+                             print("DEBUG: [isDateInFullDayLeaves - async task] Found full day leave for \(date) during background update. Cache updated.")
+                        } else {
+                            print("DEBUG: [isDateInFullDayLeaves - async task] Date \(date) not found in Firestore leaves during background update. Cache updated.")
+                        }
+                    } else {
+                        print("DEBUG: [isDateInFullDayLeaves - async task] No schedule data in Firestore for background update. Clearing cache.")
+                        UserDefaults.standard.removeObject(forKey: "fullDayLeaves_\(doctorId)")
                     }
                 } catch {
-                    print("DEBUG: Error checking full day leaves: \(error)")
+                    print("DEBUG: [isDateInFullDayLeaves - async task] Error in background cache update: \(error)")
                 }
             }
         }
-        
+        print("DEBUG: [isDateInFullDayLeaves] No full day leave found for \(date) after all checks. Returning false.")
         return false
     }
     
