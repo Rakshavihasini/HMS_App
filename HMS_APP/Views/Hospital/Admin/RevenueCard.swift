@@ -47,9 +47,12 @@ struct RevenueCard: View {
                         .foregroundColor(currentTheme.tertiary)
                 }
             }
-
+            // Add a small spacing view to ensure the card has the same height
+            Spacer()
+                .frame(height: 0)
         }
         .padding()
+        .frame(height: 85) // Match the fixed height of ConsultationsPerHourCard
         .background(currentTheme.card)
         .cornerRadius(16)
         .overlay(
