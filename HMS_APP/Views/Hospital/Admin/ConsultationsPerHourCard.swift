@@ -16,48 +16,67 @@ struct ConsultationsPerHourCard: View {
         colorScheme == .dark ? Theme.dark : Theme.light
     }
     
-    private var currentConsults: Int {
+    // Total completed appointments for today
+    private var todayCompletedAppointments: Int {
         let calendar = Calendar.current
         let now = Date()
-        let currentHour = calendar.component(.hour, from: now)
         
-        return appointmentManager.allAppointments.filter { appointment in
+        print("DEBUG: Calculating completed consultations for today")
+        
+        let filtered = appointmentManager.allAppointments.filter { appointment in
             // Only count COMPLETED appointments
             guard appointment.status?.rawValue == "COMPLETED" else {
                 return false
             }
             
-            // First try to use appointmentDateTime if available
+            // Check if appointment is for today
             if let appointmentDateTime = appointment.appointmentDateTime {
-                let appointmentHour = calendar.component(.hour, from: appointmentDateTime)
                 let isToday = calendar.isDate(appointmentDateTime, inSameDayAs: now)
-                return isToday && appointmentHour == currentHour
-            }
-            
-            // Try to use date string if appointmentDateTime is not available
-            if let dateStr = appointment.date {
-                let formatter = DateFormatter()
-                formatter.dateFormat = "yyyy-MM-dd"
-                if let dateObj = formatter.date(from: dateStr) {
-                    let isToday = calendar.isDate(dateObj, inSameDayAs: now)
-                    // Since we don't have a specific hour, we'll consider it as current hour
-                    return isToday
+                
+                if isToday {
+                    print("DEBUG: Found appointment for today - ID: \(appointment.id)")
+                    return true
+                }
+            } else if let dateString = appointment.date {
+                // Try to parse the date string
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "yyyy-MM-dd"
+                
+                if let dateObj = dateFormatter.date(from: dateString),
+                   calendar.isDate(dateObj, inSameDayAs: now) {
+                    print("DEBUG: Found appointment with date string for today - ID: \(appointment.id)")
+                    return true
                 }
             }
             
             return false
-        }.count
+        }
+        
+        print("DEBUG: Total completed consultations for today: \(filtered.count)")
+        return filtered.count
+    }
+    
+    // Calculate per-hour rate based on business hours
+    private var currentConsults: Double {
+        let workingHoursPerDay = 12.0 // Assuming 12 working hours (e.g., 8am to 8pm)
+        let totalToday = Double(todayCompletedAppointments)
+        
+        // Calculate per-hour rate (rounded to 1 decimal place)
+        let perHourRate = totalToday / workingHoursPerDay
+        print("DEBUG: Per-hour rate: \(perHourRate) (based on \(totalToday) appointments over \(workingHoursPerDay) hours)")
+        
+        return perHourRate
     }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Completed Consultations")
+                    Text("Consultations Per Hour")
                         .font(.subheadline)
                         .foregroundColor(currentTheme.text.opacity(0.6))
                     
-                    Text("\(currentConsults)/hr")
+                    Text("\(String(format: "%.1f", currentConsults))/hr")
                         .font(.title2.bold())
                         .foregroundColor(currentTheme.text)
                 }
@@ -77,6 +96,7 @@ struct ConsultationsPerHourCard: View {
             
         }
         .padding()
+        .frame(height: 85)
         .background(currentTheme.card)
         .cornerRadius(16)
         .overlay(
@@ -135,13 +155,20 @@ struct ConsultationsPerHourCard: View {
                     
                     // Parse appointment date time
                     var appointmentDateTime: Date? = nil
+                    let date = data["date"] as? String
+                    var timeString = data["time"] as? String
+                    
                     if let dateTimeTimestamp = data["appointmentDateTime"] as? Timestamp {
                         appointmentDateTime = dateTimeTimestamp.dateValue()
-                    } else if let dateStr = data["date"] as? String, let timeStr = data["time"] as? String {
+                        print("DEBUG: Card - Appointment \(id) has timestamp: \(appointmentDateTime?.description ?? "nil")")
+                    } else if let dateStr = date, let timeStr = timeString {
                         // Fallback to legacy date and time format
                         let dateFormatter = DateFormatter()
                         dateFormatter.dateFormat = "yyyy-MM-dd h:mm a"
                         appointmentDateTime = dateFormatter.date(from: "\(dateStr) \(timeStr)")
+                        print("DEBUG: Card - Appointment \(id) parsed from date/time strings: \(appointmentDateTime?.description ?? "failed to parse")")
+                    } else if let dateStr = date {
+                        print("DEBUG: Card - Appointment \(id) has date (\(dateStr)) but no time")
                     }
                     
                     // Parse status with case normalization
@@ -149,13 +176,13 @@ struct ConsultationsPerHourCard: View {
                     if let statusStr = data["status"] as? String {
                         let upperStatus = statusStr.uppercased()
                         appointmentStatus = AppointmentData.AppointmentStatus(rawValue: upperStatus)
+                        print("DEBUG: Card - Appointment \(id) status: \(upperStatus)")
                     }
                     
                     // Get duration and notes
                     let durationMinutes = data["durationMinutes"] as? Int
                     let notes = data["notes"] as? String
                     let reason = data["reason"] as? String
-                    let date = data["date"] as? String
                     
                     let appointment = AppointmentData(
                         id: id,
