@@ -21,7 +21,7 @@ struct DoctorPatientsListView: View {
             VStack(spacing: 0) {
                 // Header
                 HStack {
-                    Text("Doctor's Patients")
+                    Text("Your Patients")
                         .font(.largeTitle)
                         .fontWeight(.bold)
                         .foregroundColor(colorScheme == .dark ? .white : .primary)
