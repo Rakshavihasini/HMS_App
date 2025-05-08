@@ -5,9 +5,10 @@
 //  Created by Prasanjit Panda on 07/05/25.
 //
 
-
+import SwiftUI
 import UIKit
 import Razorpay
+import FirebaseFirestore
 
 class CheckoutViewController: UIViewController, RazorpayPaymentCompletionProtocol {
     var razorpay: RazorpayCheckout!
@@ -66,7 +67,7 @@ class CheckoutViewController: UIViewController, RazorpayPaymentCompletionProtoco
                 "email": "user@example.com"
             ],
             "theme": [
-                "color": "#F37254"
+                "color": "#007AFF"
             ]
         ]
         
@@ -95,11 +96,94 @@ class CheckoutViewController: UIViewController, RazorpayPaymentCompletionProtoco
     func onPaymentSuccess(_ payment_id: String) {
         print("Payment Success: \(payment_id)")
         // Handle successful payment
-        DispatchQueue.main.async { [weak self] in
-            // Clean up the temporary window
-            self?.paymentWindow = nil
-            // Navigate back to the root view
-            self?.coordinator?.parent.router.navigateToRoot()
+        
+        // Update appointment status in Firestore
+        if let appointmentId = UserDefaults.standard.string(forKey: "currentAppointmentId") {
+            let db = Firestore.firestore()
+            let appointmentRef = db.collection("hms4_appointments").document(appointmentId)
+            
+            appointmentRef.updateData([
+                "status": "SCHEDULED",
+                "paymentStatus": "completed",
+                "paymentId": payment_id
+            ]) { error in
+                if let error = error {
+                    print("Error updating appointment status: \(error.localizedDescription)")
+                } else {
+                    print("Appointment status updated successfully")
+                }
+                
+                // Clean up the UserDefaults
+                UserDefaults.standard.removeObject(forKey: "currentAppointmentId")
+                
+                // Continue with UI cleanup and navigation
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+                    
+                    // Clean up the temporary window
+                    self.paymentWindow = nil
+                    
+                    // Get the window scene
+                    if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                       let window = windowScene.windows.first {
+                        
+                        // Create a new PatientHomeView as the root
+                        let patientHomeView = UIHostingController(rootView: PatientHomeView()
+                            .environmentObject(AuthManager())
+                            .environmentObject(AppointmentManager()))
+                        
+                        // Set as the root view controller to clear navigation stack
+                        window.rootViewController = patientHomeView
+                        
+                        // Show the alert on the new root view
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            let alertController = UIAlertController(
+                                title: "Appointment Scheduled",
+                                message: "Your appointment has been scheduled successfully!",
+                                preferredStyle: .alert
+                            )
+                            
+                            alertController.addAction(UIAlertAction(title: "OK", style: .default))
+                            
+                            patientHomeView.present(alertController, animated: true)
+                        }
+                    }
+                }
+            }
+        } else {
+            // If no appointment ID found, just continue with UI cleanup
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                
+                // Clean up the temporary window
+                self.paymentWindow = nil
+                
+                // Get the window scene
+                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                   let window = windowScene.windows.first {
+                    
+                    // Create a new PatientHomeView as the root
+                    let patientHomeView = UIHostingController(rootView: PatientHomeView()
+                        .environmentObject(AuthManager())
+                        .environmentObject(AppointmentManager()))
+                    
+                    // Set as the root view controller to clear navigation stack
+                    window.rootViewController = patientHomeView
+                    
+                    // Show the alert on the new root view
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        let alertController = UIAlertController(
+                            title: "Appointment Scheduled",
+                            message: "Your appointment has been scheduled successfully!",
+                            preferredStyle: .alert
+                        )
+                        
+                        alertController.addAction(UIAlertAction(title: "OK", style: .default))
+                        
+                        patientHomeView.present(alertController, animated: true)
+                    }
+                }
+            }
         }
     }
     

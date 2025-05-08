@@ -975,6 +975,8 @@ struct BookAppointmentView: View {
         let appointmentDateTime = timeFormatter.date(from: combinedDateTimeString.lowercased())
         
         let appointmentId = UUID().uuidString
+        // Store the appointment ID in UserDefaults for the payment gateway to use
+        UserDefaults.standard.set(appointmentId, forKey: "currentAppointmentId")
         
         guard let patientId = UserDefaults.standard.string(forKey: "userId") else {
             errorMessage = "Patient ID not found"
@@ -1012,7 +1014,8 @@ struct BookAppointmentView: View {
             "reason": reason,
             "createdAt": FieldValue.serverTimestamp(),
             "database": dbName,
-            "userType": UserDefaults.standard.string(forKey: "userType") ?? "patient"
+            "userType": UserDefaults.standard.string(forKey: "userType") ?? "patient",
+            "consultationFee": consultationFee
         ]
         
         // Create transaction data
@@ -1047,9 +1050,11 @@ struct BookAppointmentView: View {
                 
                 // Store appointment data
                 try await db.collection("\(dbName)_appointments").document(appointmentId).setData(appointmentData)
+                print("Appointment successfully added to Firebase with ID: \(appointmentId)")
                 
                 // Store transaction data
                 try await db.collection("\(dbName)_transactions").document(transactionId).setData(transactionData)
+                print("Transaction successfully added to Firebase with ID: \(transactionId)")
                 
                 // After successful booking, immediately remove the slot from available time slots
                 await MainActor.run {

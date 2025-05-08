@@ -5,6 +5,7 @@
 //  Created by rjk on 06/05/25.
 //
 import SwiftUI
+import FirebaseFirestore
 
 // Payment Confirmation View
 struct PaymentConfirmationView: View {
@@ -13,11 +14,15 @@ struct PaymentConfirmationView: View {
     let time: String
     let reason: String
     let consultationFee: Int
-    let onConfirm: () -> Void
+    let onConfirm: () -> Void  // Keep for counter payments
     let onCancel: () -> Void
+    // Add a new closure for online payments
+    var onConfirmOnline: (() -> Void)? = nil
+    
     @Environment(\.colorScheme) var colorScheme
     @State private var selectedPaymentMethod: PaymentMethod? = nil
     @StateObject private var router = Router<ViewPath>()
+    @State private var isLoading = false
     
     enum PaymentMethod {
         case counter, online
@@ -27,6 +32,112 @@ struct PaymentConfirmationView: View {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         return formatter.string(from: date)
+    }
+    
+    // Function to create appointment in Firebase and navigate to payment
+    private func createAppointmentAndNavigateToPayment() {
+        // Set loading state
+        isLoading = true
+        
+        // Create a new appointment ID
+        let appointmentId = UUID().uuidString
+        // Store the appointment ID in UserDefaults for the payment gateway to use
+        UserDefaults.standard.set(appointmentId, forKey: "currentAppointmentId")
+        
+        // Get patient ID from UserDefaults
+        guard let patientId = UserDefaults.standard.string(forKey: "userId") else {
+            print("Error: Patient ID not found")
+            isLoading = false
+            return
+        }
+        
+        // Format date for Firebase
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let dateString = dateFormatter.string(from: date)
+        
+        // Format appointment time
+        let startTime = time.components(separatedBy: " - ")[0]
+        
+        // Create combined date/time
+        let timeFormatter = DateFormatter()
+        timeFormatter.dateFormat = "yyyy-MM-dd h:mma"
+        let combinedDateTimeString = "\(dateString) \(startTime)"
+        let appointmentDateTime = timeFormatter.date(from: combinedDateTimeString.lowercased())
+        
+        // Save payment method to UserDefaults
+        UserDefaults.standard.set("online", forKey: "selectedPaymentMethod")
+        
+        // Create appointment data
+        let appointmentData: [String: Any] = [
+            "id": appointmentId,
+            "patId": patientId,
+            "patName": UserDefaults.standard.string(forKey: "userName") ?? "Patient",
+            "docId": doctor.id ?? "",
+            "docName": doctor.name,
+            "patientRecordsId": patientId,
+            "date": dateString,
+            "time": startTime,
+            "appointmentDateTime": appointmentDateTime as Any,
+            "status": "SCHEDULED", // For online payments, set status to scheduled
+            "paymentStatus": "pending", // Will be updated to completed after payment
+            "durationMinutes": 30,
+            "reason": reason,
+            "createdAt": FieldValue.serverTimestamp(),
+            "database": "hms4",
+            "userType": UserDefaults.standard.string(forKey: "userType") ?? "patient",
+            "consultationFee": consultationFee
+        ]
+        
+        // Create transaction data
+        let transactionId = UUID().uuidString
+        let transactionData: [String: Any] = [
+            "id": transactionId,
+            "patientId": patientId,
+            "doctorId": doctor.id ?? "",
+            "amount": consultationFee,
+            "paymentMethod": "online",
+            "paymentStatus": "pending", // Will be updated to completed after payment
+            "appointmentId": appointmentId,
+            "appointmentDate": dateString,
+            "transactionDate": FieldValue.serverTimestamp(),
+            "type": "consultation_fee"
+        ]
+        
+        let db = Firestore.firestore()
+        
+        // Store appointment and transaction data in Firebase
+        Task {
+            do {
+                // Store appointment data
+                try await db.collection("hms4_appointments").document(appointmentId).setData(appointmentData)
+                print("Appointment successfully added to Firebase with ID: \(appointmentId)")
+                
+                // Store transaction data
+                try await db.collection("hms4_transactions").document(transactionId).setData(transactionData)
+                print("Transaction successfully added to Firebase with ID: \(transactionId)")
+                
+                // After successful creation, navigate to payment gateway
+                await MainActor.run {
+                    // Navigate to payment gateway
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        // Navigate to payment gateway
+                        withAnimation {
+                            self.router.path.append(ViewPath.payment)
+                            print("Navigating to payment gateway: \(self.router.path)")
+                        }
+                        
+                        // Reset loading state
+                        isLoading = false
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    print("Error creating appointment: \(error.localizedDescription)")
+                    isLoading = false
+                }
+            }
+        }
     }
     
     var body: some View {
@@ -68,6 +179,15 @@ struct PaymentConfirmationView: View {
                 case .payment:
                     PaymentGatewayHelper(consultationFee: consultationFee)
                         .environmentObject(router)
+                }
+            }
+            .overlay {
+                if isLoading {
+                    ProgressView("Creating appointment...")
+                        .padding()
+                        .background(Color(.systemBackground).opacity(0.8))
+                        .cornerRadius(10)
+                        .shadow(radius: 10)
                 }
             }
         }
@@ -267,8 +387,14 @@ struct PaymentConfirmationView: View {
                         // Show alert for counter payment
                         showPaymentAlert = true
                     } else if method == .online {
-                        // Navigate to payment gateway
-                        router.path.append(ViewPath.payment)
+                        // Use the dedicated online payment flow
+                        if let onConfirmOnline = onConfirmOnline {
+                            // Use the provided closure if available
+                            onConfirmOnline()
+                        } else {
+                            // Use the default implementation
+                            createAppointmentAndNavigateToPayment()
+                        }
                     }
                 }
             }) {
@@ -283,7 +409,7 @@ struct PaymentConfirmationView: View {
                     )
                     .cornerRadius(12)
             }
-            .disabled(selectedPaymentMethod == nil)
+            .disabled(selectedPaymentMethod == nil || isLoading)
             
             Button(action: onCancel) {
                 Text("Cancel")
@@ -296,6 +422,7 @@ struct PaymentConfirmationView: View {
                             .stroke(Color.red, lineWidth: 1)
                     )
             }
+            .disabled(isLoading)
         }
         .padding(.horizontal)
         .padding(.bottom, 30)
