@@ -9,6 +9,7 @@ import SwiftUI
 import Charts
 import PDFKit
 import UIKit
+import FirebaseFirestore
 
 struct ConsultationDetailView: View {
     @Environment(\.colorScheme) var colorScheme
@@ -36,7 +37,25 @@ struct ConsultationDetailView: View {
     
     var peakHour: String {
         if let peak = consultationsData.max(by: { $0.count < $1.count }) {
-            return "\(peak.hour):00"
+            switch selectedTimeRange {
+            case .day:
+                // Format as hour for day view
+                let hour = peak.hour
+                let isPM = hour >= 12
+                let hour12 = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour)
+                return "\(hour12):00 \(isPM ? "PM" : "AM")"
+            case .week:
+                // For week view, use day name
+                let dayIndex = peak.hour
+                let dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+                if dayIndex >= 0 && dayIndex < dayNames.count {
+                    return dayNames[dayIndex]
+                }
+                return "\(peak.hour)"
+            case .month:
+                // For month view, show day of month
+                return "\(peak.hour)"
+            }
         }
         return "N/A"
     }
@@ -185,7 +204,7 @@ struct ConsultationDetailView: View {
                                 AxisTick()
                                 AxisValueLabel {
                                     if let hour = value.as(Int.self) {
-                                        Text("\(hour):00")
+                                        Text(formatHourLabel(hour))
                                     }
                                 }
                             }
@@ -197,6 +216,12 @@ struct ConsultationDetailView: View {
                                 AxisValueLabel()
                             }
                         }
+                        .chartXAxisLabel(selectedTimeRange == .day ? "Time of Day" : (selectedTimeRange == .week ? "Day of Week" : "Day of Month"), alignment: .center)
+                        .chartYAxisLabel("Number of Completed Consultations")
+                        .chartForegroundStyleScale([
+                            "Completed Consultations": currentTheme.primary
+                        ])
+                        .chartLegend(position: .top, alignment: .leading)
                         .frame(height: 300)
                         .padding()
                         .background(currentTheme.card)
@@ -266,13 +291,105 @@ struct ConsultationDetailView: View {
     
     private func fetchAppointments() {
         Task {
-            await appointmentManager.fetchAllAppointments()
-            processAppointmentData()
+            do {
+                // Use Firestore directly for the most reliable approach
+                let firestore = Firestore.firestore()
+                let appointmentsCollection = "hms4_appointments"
+                
+                // First try with uppercase
+                let snapshotUpper = try await firestore.collection(appointmentsCollection)
+                    .whereField("status", isEqualTo: "COMPLETED")
+                    .getDocuments()
+                
+                // Then try with lowercase (might exist in the database)
+                let snapshotLower = try await firestore.collection(appointmentsCollection)
+                    .whereField("status", isEqualTo: "completed")
+                    .getDocuments()
+                    
+                // Combine the documents (avoiding duplicates by id)
+                var uniqueDocuments = [String: QueryDocumentSnapshot]()
+                
+                for doc in snapshotUpper.documents {
+                    uniqueDocuments[doc.documentID] = doc
+                }
+                
+                for doc in snapshotLower.documents {
+                    uniqueDocuments[doc.documentID] = doc
+                }
+                
+                print("DEBUG: DetailView - Found \(snapshotUpper.documents.count) uppercase COMPLETED appointments")
+                print("DEBUG: DetailView - Found \(snapshotLower.documents.count) lowercase completed appointments")
+                print("DEBUG: DetailView - Total unique completed appointments: \(uniqueDocuments.count)")
+                
+                var appointments: [AppointmentData] = []
+                
+                for (_, document) in uniqueDocuments {
+                    let data = document.data()
+                    
+                    // Get basic appointment data
+                    let id = document.documentID
+                    let patientId = data["patId"] as? String ?? ""
+                    let patientName = data["patName"] as? String ?? ""
+                    let doctorId = data["docId"] as? String ?? ""
+                    let doctorName = data["docName"] as? String ?? ""
+                    let patientRecordsId = data["patientRecordsId"] as? String ?? ""
+                    
+                    // Parse appointment date time
+                    var appointmentDateTime: Date? = nil
+                    if let dateTimeTimestamp = data["appointmentDateTime"] as? Timestamp {
+                        appointmentDateTime = dateTimeTimestamp.dateValue()
+                    } else if let dateStr = data["date"] as? String, let timeStr = data["time"] as? String {
+                        // Fallback to legacy date and time format
+                        let dateFormatter = DateFormatter()
+                        dateFormatter.dateFormat = "yyyy-MM-dd h:mm a"
+                        appointmentDateTime = dateFormatter.date(from: "\(dateStr) \(timeStr)")
+                    }
+                    
+                    // Parse status (making sure to handle case sensitivity)
+                    var appointmentStatus: AppointmentData.AppointmentStatus? = nil
+                    if let statusStr = data["status"] as? String {
+                        // Normalize to uppercase for consistency
+                        let upperStatus = statusStr.uppercased()
+                        appointmentStatus = AppointmentData.AppointmentStatus(rawValue: upperStatus)
+                    }
+                    
+                    // Get duration and notes
+                    let durationMinutes = data["durationMinutes"] as? Int
+                    let notes = data["notes"] as? String
+                    let reason = data["reason"] as? String
+                    let date = data["date"] as? String
+                    
+                    let appointment = AppointmentData(
+                        id: id,
+                        patientId: patientId,
+                        patientName: patientName,
+                        doctorId: doctorId,
+                        doctorName: doctorName,
+                        patientRecordsId: patientRecordsId,
+                        appointmentDateTime: appointmentDateTime,
+                        status: appointmentStatus,
+                        durationMinutes: durationMinutes,
+                        notes: notes,
+                        date: date,
+                        reason: reason
+                    )
+                    
+                    appointments.append(appointment)
+                }
+                
+                print("DEBUG: DetailView - Total appointments after processing: \(appointments.count)")
+                
+                await MainActor.run {
+                    appointmentManager.allAppointments = appointments
+                    processAppointmentData()
+                }
+            } catch {
+                print("DEBUG: DetailView - Error fetching appointments: \(error.localizedDescription)")
+            }
         }
     }
     
     private func processAppointmentData() {
-        var appointmentsByHour: [Int: [AppointmentData]] = [:]
         let calendar = Calendar.current
         
         // Get date range based on selected time range
@@ -281,8 +398,27 @@ struct ConsultationDetailView: View {
         print("DEBUG: Processing appointments for range: \(startDate) to \(endDate)")
         print("DEBUG: Total appointments available: \(appointmentManager.allAppointments.count)")
         
+        // Set different date format based on time range
+        let periodFormatter = DateFormatter()
+        switch selectedTimeRange {
+        case .day:
+            periodFormatter.dateFormat = "H" // Hour format for day view (0-23)
+        case .week:
+            periodFormatter.dateFormat = "e" // Day of week (1-7, 1 is Sunday in Gregorian calendar)
+        case .month:
+            periodFormatter.dateFormat = "d" // Day of month format
+        }
+        
+        // Create a dictionary to track consultations by period
+        var consultationsByPeriod: [String: [AppointmentData]] = [:]
+        
         // Process each appointment
         for appointment in appointmentManager.allAppointments {
+            // Filter only completed appointments
+            guard appointment.status?.rawValue == "COMPLETED" else {
+                continue
+            }
+            
             // Check if appointment is within the selected date range
             guard let appointmentDateTime = getAppointmentDateTime(appointment, calendar) else {
                 continue
@@ -291,40 +427,77 @@ struct ConsultationDetailView: View {
             if appointmentDateTime >= startDate && appointmentDateTime < endDate {
                 print("DEBUG: Processing appointment at \(appointmentDateTime)")
                 
-                // Normalize hours to working hours
-                var hour = calendar.component(.hour, from: appointmentDateTime)
+                // Get period label based on selected time range
+                let periodLabel = periodFormatter.string(from: appointmentDateTime)
                 
-                if hour < 8 {
-                    hour = 8
-                } else if hour > 20 {
-                    hour = 20
+                // Add to the appropriate period
+                if consultationsByPeriod[periodLabel] == nil {
+                    consultationsByPeriod[periodLabel] = []
                 }
-                
-                if appointmentsByHour[hour] == nil {
-                    appointmentsByHour[hour] = []
-                }
-                appointmentsByHour[hour]?.append(appointment)
+                consultationsByPeriod[periodLabel]?.append(appointment)
             }
         }
         
-        print("DEBUG: Appointments by hour: \(appointmentsByHour.mapValues { $0.count })")
-        
-        // Create ConsultationData array
+        // Create ConsultationData array based on time range
         var newConsultationsData: [ConsultationData] = []
         
-        // Process appointments for each hour (8 AM to 8 PM)
-        for hour in 8...20 {
-            let appointments = appointmentsByHour[hour] ?? []
-            let count = appointments.count
-            let totalDuration = appointments.reduce(0) { $0 + ($1.durationMinutes ?? 30) }
-            let avgDuration = count > 0 ? totalDuration / count : 0
+        switch selectedTimeRange {
+        case .day:
+            // For day view, show hours from 8 AM to 8 PM
+            for hour in 8...20 {
+                let hourString = "\(hour)"
+                let appointments = consultationsByPeriod[hourString] ?? []
+                let count = appointments.count
+                let totalDuration = appointments.reduce(0) { $0 + ($1.durationMinutes ?? 30) }
+                let avgDuration = count > 0 ? totalDuration / count : 0
+                
+                newConsultationsData.append(ConsultationData(
+                    hour: hour,
+                    count: count,
+                    specialty: appointments.first?.doctorName ?? "",
+                    avgDuration: avgDuration
+                ))
+            }
             
-            newConsultationsData.append(ConsultationData(
-                hour: hour,
-                count: count,
-                specialty: appointments.first?.doctorName ?? "",
-                avgDuration: avgDuration
-            ))
+        case .week:
+            // For week view, use days 1-7 (Sunday to Saturday in Gregorian)
+            // Convert to 0-6 (Monday to Sunday) for display
+            for day in 1...7 {
+                let dayString = "\(day)"
+                let appointments = consultationsByPeriod[dayString] ?? []
+                let count = appointments.count
+                let totalDuration = appointments.reduce(0) { $0 + ($1.durationMinutes ?? 30) }
+                let avgDuration = count > 0 ? totalDuration / count : 0
+                
+                // Convert from Sunday-based (1-7) to Monday-based (0-6) index
+                let dayIndex = day == 1 ? 6 : day - 2
+                
+                newConsultationsData.append(ConsultationData(
+                    hour: dayIndex, // Store day index (0-6) in hour field
+                    count: count,
+                    specialty: appointments.first?.doctorName ?? "",
+                    avgDuration: avgDuration
+                ))
+            }
+            
+        case .month:
+            // For month view, handle each day of the month
+            let daysInMonth = calendar.range(of: .day, in: .month, for: selectedDate)?.count ?? 30
+            
+            for day in 1...daysInMonth {
+                let dayString = "\(day)"
+                let appointments = consultationsByPeriod[dayString] ?? []
+                let count = appointments.count
+                let totalDuration = appointments.reduce(0) { $0 + ($1.durationMinutes ?? 30) }
+                let avgDuration = count > 0 ? totalDuration / count : 0
+                
+                newConsultationsData.append(ConsultationData(
+                    hour: day, // Store day of month in hour field
+                    count: count,
+                    specialty: appointments.first?.doctorName ?? "",
+                    avgDuration: avgDuration
+                ))
+            }
         }
         
         // Update the UI
@@ -546,47 +719,28 @@ struct ConsultationDetailView: View {
         }
     }
 
-//    // Helper function to get date range text
-//    private func getDateRangeText() -> String {
-//        let dateFormatter = DateFormatter()
-//        dateFormatter.dateStyle = .medium
-//        
-//        switch selectedTimeRange {
-//        case .day:
-//            return dateFormatter.string(from: selectedDate)
-//        case .week:
-//            let calendar = Calendar.current
-//            let startOfWeek = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: selectedDate))!
-//            let endOfWeek = calendar.date(byAdding: .day, value: 6, to: startOfWeek)!
-//            return "\(dateFormatter.string(from: startOfWeek)) - \(dateFormatter.string(from: endOfWeek))"
-//        case .month:
-//            dateFormatter.dateFormat = "MMMM yyyy"
-//            return dateFormatter.string(from: selectedDate)
-//        }
-//    }
-
-//    // Helper function to get specialty breakdown
-//    private func getSpecialtyBreakdown() -> [(specialty: String, count: Int, percentage: Double)] {
-//        // Count appointments by specialty
-//        var specialtyCounts: [String: Int] = [:]
-//        
-//        for appointment in appointmentManager.appointments {
-//            let specialty = appointment.doctorSpecialty
-//            specialtyCounts[specialty, default: 0] += 1
-//        }
-//        
-//        // Convert to array and calculate percentages
-//        let total = appointmentManager.appointments.count
-//        var result: [(specialty: String, count: Int, percentage: Double)] = []
-//        
-//        for (specialty, count) in specialtyCounts {
-//            let percentage = total > 0 ? Double(count) / Double(total) * 100.0 : 0
-//            result.append((specialty: specialty, count: count, percentage: percentage))
-//        }
-//        
-//        // Sort by count (descending)
-//        return result.sorted { $0.count > $1.count }
-//    }
+    // Add a helper method to format hour labels
+    private func formatHourLabel(_ hour: Int) -> String {
+        switch selectedTimeRange {
+        case .day:
+            // For day view, format as hour (12-hour format)
+            let isPM = hour >= 12
+            let hour12 = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour)
+            return "\(hour12):00 \(isPM ? "PM" : "AM")"
+            
+        case .week:
+            // For week view, convert index to day name
+            let dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+            if hour >= 0 && hour < dayNames.count {
+                return dayNames[hour]
+            }
+            return "\(hour)"
+            
+        case .month:
+            // For month view, just show the day number
+            return "\(hour)"
+        }
+    }
 }
 
 struct TimeRangeSelector: View {
@@ -675,6 +829,86 @@ struct FilterView: View {
     }
         
     
+}
+
+// Add a function to AppointmentManager to specifically fetch only completed appointments
+@MainActor
+extension AppointmentManager {
+    func fetchCompletedAppointments() async {
+        isLoading = true
+        error = nil
+        
+        do {
+            // Use Firestore directly without accessing private properties
+            let firestore = Firestore.firestore()
+            let appointmentsCollection = "hms4_appointments"
+            let snapshot = try await firestore.collection(appointmentsCollection)
+                .whereField("status", isEqualTo: "COMPLETED") // Only fetch COMPLETED appointments
+                .getDocuments()
+            
+            var appointments: [AppointmentData] = []
+            
+            for document in snapshot.documents {
+                let data = document.data()
+                
+                // Get basic appointment data
+                let id = document.documentID
+                let patientId = data["patId"] as? String ?? ""
+                let patientName = data["patName"] as? String ?? ""
+                let doctorId = data["docId"] as? String ?? ""
+                let doctorName = data["docName"] as? String ?? ""
+                let patientRecordsId = data["patientRecordsId"] as? String ?? ""
+                
+                // Parse appointment date time
+                var appointmentDateTime: Date? = nil
+                if let dateTimeTimestamp = data["appointmentDateTime"] as? Timestamp {
+                    appointmentDateTime = dateTimeTimestamp.dateValue()
+                } else if let dateStr = data["date"] as? String, let timeStr = data["time"] as? String {
+                    // Fallback to legacy date and time format
+                    let dateFormatter = DateFormatter()
+                    dateFormatter.dateFormat = "yyyy-MM-dd h:mm a"
+                    appointmentDateTime = dateFormatter.date(from: "\(dateStr) \(timeStr)")
+                }
+                
+                // Parse status
+                var appointmentStatus: AppointmentData.AppointmentStatus? = nil
+                if let statusStr = data["status"] as? String {
+                    appointmentStatus = AppointmentData.AppointmentStatus(rawValue: statusStr.uppercased())
+                }
+                
+                // Get duration and notes
+                let durationMinutes = data["durationMinutes"] as? Int
+                let notes = data["notes"] as? String
+                let reason = data["reason"] as? String
+                let date = data["date"] as? String
+                
+                let appointment = AppointmentData(
+                    id: id,
+                    patientId: patientId,
+                    patientName: patientName,
+                    doctorId: doctorId,
+                    doctorName: doctorName,
+                    patientRecordsId: patientRecordsId,
+                    appointmentDateTime: appointmentDateTime,
+                    status: appointmentStatus,
+                    durationMinutes: durationMinutes,
+                    notes: notes,
+                    date: date,
+                    reason: reason
+                )
+                
+                appointments.append(appointment)
+            }
+            
+            self.allAppointments = appointments
+            self.isLoading = false
+            
+        } catch {
+            self.isLoading = false
+            self.error = "Error fetching appointments: \(error.localizedDescription)"
+            print("DEBUG: Error fetching completed appointments: \(error.localizedDescription)")
+        }
+    }
 }
 
 

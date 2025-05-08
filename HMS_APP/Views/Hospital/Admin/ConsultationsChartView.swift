@@ -33,7 +33,7 @@ struct ConsultationsChartView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Consultations")
+                    Text("Completed Consultations")
                         .font(.headline)
                         .foregroundColor(currentTheme.text)
                     
@@ -109,7 +109,7 @@ struct ConsultationsChartView: View {
                         AxisTick()
                         AxisValueLabel {
                             if let hour = value.as(Int.self) {
-                                Text("\(hour):00")
+                                Text(formatHourLabel(hour))
                             }
                         }
                     }
@@ -121,6 +121,12 @@ struct ConsultationsChartView: View {
                         AxisValueLabel()
                     }
                 }
+                .chartXAxisLabel("Time of Day", alignment: .center)
+                .chartYAxisLabel("Number of Consultations")
+                .chartForegroundStyleScale([
+                    "Completed Consultations": currentTheme.primary
+                ])
+                .chartLegend(position: .top, alignment: .leading)
                 .frame(height: 220)
             }
             
@@ -175,9 +181,103 @@ struct ConsultationsChartView: View {
     
     private func fetchAppointments() {
         Task {
-            // Use the AppointmentManager to fetch all appointments
-            await appointmentManager.fetchAllAppointments()
-            processAppointmentData()
+            do {
+                // Use Firestore directly for the most reliable approach
+                let firestore = Firestore.firestore()
+                let appointmentsCollection = "hms4_appointments"
+                
+                // First try with uppercase
+                let snapshotUpper = try await firestore.collection(appointmentsCollection)
+                    .whereField("status", isEqualTo: "COMPLETED")
+                    .getDocuments()
+                
+                // Then try with lowercase (might exist in the database)
+                let snapshotLower = try await firestore.collection(appointmentsCollection)
+                    .whereField("status", isEqualTo: "completed")
+                    .getDocuments()
+                    
+                // Combine the documents (avoiding duplicates by id)
+                var uniqueDocuments = [String: QueryDocumentSnapshot]()
+                
+                for doc in snapshotUpper.documents {
+                    uniqueDocuments[doc.documentID] = doc
+                }
+                
+                for doc in snapshotLower.documents {
+                    uniqueDocuments[doc.documentID] = doc
+                }
+                
+                print("DEBUG: Found \(snapshotUpper.documents.count) uppercase COMPLETED appointments")
+                print("DEBUG: Found \(snapshotLower.documents.count) lowercase completed appointments")
+                print("DEBUG: Total unique completed appointments: \(uniqueDocuments.count)")
+                
+                var appointments: [AppointmentData] = []
+                
+                for (_, document) in uniqueDocuments {
+                    let data = document.data()
+                    
+                    // Get basic appointment data
+                    let id = document.documentID
+                    let patientId = data["patId"] as? String ?? ""
+                    let patientName = data["patName"] as? String ?? ""
+                    let doctorId = data["docId"] as? String ?? ""
+                    let doctorName = data["docName"] as? String ?? ""
+                    let patientRecordsId = data["patientRecordsId"] as? String ?? ""
+                    
+                    // Parse appointment date time
+                    var appointmentDateTime: Date? = nil
+                    if let dateTimeTimestamp = data["appointmentDateTime"] as? Timestamp {
+                        appointmentDateTime = dateTimeTimestamp.dateValue()
+                    } else if let dateStr = data["date"] as? String, let timeStr = data["time"] as? String {
+                        // Fallback to legacy date and time format
+                        let dateFormatter = DateFormatter()
+                        dateFormatter.dateFormat = "yyyy-MM-dd h:mm a"
+                        appointmentDateTime = dateFormatter.date(from: "\(dateStr) \(timeStr)")
+                    }
+                    
+                    // Parse status (making sure to handle case sensitivity)
+                    var appointmentStatus: AppointmentData.AppointmentStatus? = nil
+                    if let statusStr = data["status"] as? String {
+                        // Normalize to uppercase for consistency
+                        let upperStatus = statusStr.uppercased()
+                        appointmentStatus = AppointmentData.AppointmentStatus(rawValue: upperStatus)
+                        print("DEBUG: Appointment ID \(id) has status: \(statusStr) (normalized: \(upperStatus))")
+                    }
+                    
+                    // Get duration and notes
+                    let durationMinutes = data["durationMinutes"] as? Int
+                    let notes = data["notes"] as? String
+                    let reason = data["reason"] as? String
+                    let date = data["date"] as? String
+                    
+                    let appointment = AppointmentData(
+                        id: id,
+                        patientId: patientId,
+                        patientName: patientName,
+                        doctorId: doctorId,
+                        doctorName: doctorName,
+                        patientRecordsId: patientRecordsId,
+                        appointmentDateTime: appointmentDateTime,
+                        status: appointmentStatus,
+                        durationMinutes: durationMinutes,
+                        notes: notes,
+                        date: date,
+                        reason: reason
+                    )
+                    
+                    appointments.append(appointment)
+                    print("DEBUG: Added completed appointment: \(appointment.id) on \(appointment.appointmentDateTime?.description ?? "unknown date")")
+                }
+                
+                print("DEBUG: Total completed appointments after processing: \(appointments.count)")
+                
+                await MainActor.run {
+                    appointmentManager.allAppointments = appointments
+                    processAppointmentData()
+                }
+            } catch {
+                print("DEBUG: Error fetching appointments: \(error.localizedDescription)")
+            }
         }
     }
     
@@ -192,6 +292,11 @@ struct ConsultationsChartView: View {
         
         // Process each appointment
         for appointment in appointmentManager.allAppointments {
+            // Only process appointments with COMPLETED status from the database
+            guard appointment.status?.rawValue == "COMPLETED" else {
+                continue
+            }
+            
             guard let appointmentDateTime = appointment.appointmentDateTime else {
                 // Try to parse from date string if available
                 if let dateStr = appointment.date, let dateObj = parseDate(dateStr) {
@@ -260,83 +365,12 @@ struct ConsultationsChartView: View {
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.date(from: dateStr)
     }
-}
-
-// Extend AppointmentManager to add a method to fetch all appointments
-extension AppointmentManager {
-    @MainActor
-    func fetchAllAppointments() async {
-        isLoading = true
-        error = nil
-        
-        do {
-            // Use Firestore directly without accessing private properties
-            let firestore = Firestore.firestore()
-            let appointmentsCollection = "hms4_appointments"
-            let snapshot = try await firestore.collection(appointmentsCollection).getDocuments()
-            
-            var appointments: [AppointmentData] = []
-            
-            for document in snapshot.documents {
-                let data = document.data()
-                
-                // Get basic appointment data
-                let id = document.documentID
-                let patientId = data["patId"] as? String ?? ""
-                let patientName = data["patName"] as? String ?? ""
-                let doctorId = data["docId"] as? String ?? ""
-                let doctorName = data["docName"] as? String ?? ""
-                let patientRecordsId = data["patientRecordsId"] as? String ?? ""
-                
-                // Parse appointment date time
-                var appointmentDateTime: Date? = nil
-                if let dateTimeTimestamp = data["appointmentDateTime"] as? Timestamp {
-                    appointmentDateTime = dateTimeTimestamp.dateValue()
-                } else if let dateStr = data["date"] as? String, let timeStr = data["time"] as? String {
-                    // Fallback to legacy date and time format
-                    let dateFormatter = DateFormatter()
-                    dateFormatter.dateFormat = "yyyy-MM-dd h:mm a"
-                    appointmentDateTime = dateFormatter.date(from: "\(dateStr) \(timeStr)")
-                }
-                
-                // Parse status
-                var appointmentStatus: AppointmentData.AppointmentStatus? = nil
-                if let statusStr = data["status"] as? String {
-                    appointmentStatus = AppointmentData.AppointmentStatus(rawValue: statusStr.uppercased())
-                }
-                
-                // Get duration and notes
-                let durationMinutes = data["durationMinutes"] as? Int
-                let notes = data["notes"] as? String
-                let reason = data["reason"] as? String
-                let date = data["date"] as? String
-                
-                let appointment = AppointmentData(
-                    id: id,
-                    patientId: patientId,
-                    patientName: patientName,
-                    doctorId: doctorId,
-                    doctorName: doctorName,
-                    patientRecordsId: patientRecordsId,
-                    appointmentDateTime: appointmentDateTime,
-                    status: appointmentStatus,
-                    durationMinutes: durationMinutes,
-                    notes: notes,
-                    date: date,
-                    reason: reason
-                )
-                
-                appointments.append(appointment)
-            }
-            
-            self.allAppointments = appointments
-            self.isLoading = false
-            
-        } catch {
-            self.isLoading = false
-            self.error = "Error fetching appointments: \(error.localizedDescription)"
-            print("DEBUG: Error fetching all appointments: \(error.localizedDescription)")
-        }
+    
+    // Helper method to format hour labels
+    private func formatHourLabel(_ hour: Int) -> String {
+        let isPM = hour >= 12
+        let hour12 = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour)
+        return "\(hour12):00 \(isPM ? "PM" : "AM")"
     }
 }
 

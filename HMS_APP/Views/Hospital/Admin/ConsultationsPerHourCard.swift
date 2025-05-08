@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import FirebaseFirestore
 
 struct ConsultationsPerHourCard: View {
     @Environment(\.colorScheme) var colorScheme
@@ -21,6 +22,11 @@ struct ConsultationsPerHourCard: View {
         let currentHour = calendar.component(.hour, from: now)
         
         return appointmentManager.allAppointments.filter { appointment in
+            // Only count COMPLETED appointments
+            guard appointment.status?.rawValue == "COMPLETED" else {
+                return false
+            }
+            
             // First try to use appointmentDateTime if available
             if let appointmentDateTime = appointment.appointmentDateTime {
                 let appointmentHour = calendar.component(.hour, from: appointmentDateTime)
@@ -43,17 +49,11 @@ struct ConsultationsPerHourCard: View {
         }.count
     }
     
-    let targetConsults = 10
-    
-    private var percentComplete: Double {
-        Double(currentConsults) / Double(targetConsults) * 100
-    }
-    
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Consultations")
+                    Text("Completed Consultations")
                         .font(.subheadline)
                         .foregroundColor(currentTheme.text.opacity(0.6))
                     
@@ -66,14 +66,8 @@ struct ConsultationsPerHourCard: View {
                 
                 ZStack {
                     Circle()
-                        .stroke(currentTheme.secondary, lineWidth: 3)
+                        .fill(currentTheme.primary.opacity(0.1))
                         .frame(width: 36, height: 36)
-                    
-                    Circle()
-                        .trim(from: 0, to: CGFloat(min(percentComplete, 100)) / 100)
-                        .stroke(currentTheme.primary, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                        .frame(width: 36, height: 36)
-                        .rotationEffect(.degrees(-90))
                     
                     Image(systemName: "person.2.fill")
                         .font(.system(size: 14))
@@ -81,22 +75,6 @@ struct ConsultationsPerHourCard: View {
                 }
             }
             
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text("\(Int(min(percentComplete, 100)))% of target")
-                        .font(.caption)
-                        .foregroundColor(currentTheme.text.opacity(0.6))
-                    
-                    Spacer()
-                    
-                    Text("\(targetConsults)")
-                        .font(.caption.bold())
-                        .foregroundColor(currentTheme.text.opacity(0.8))
-                }
-                
-                ProgressView(value: Double(currentConsults), total: Double(targetConsults))
-                    .tint(currentTheme.primary)
-            }
         }
         .padding()
         .background(currentTheme.card)
@@ -107,8 +85,103 @@ struct ConsultationsPerHourCard: View {
         )
         .shadow(color: currentTheme.shadow, radius: 10, x: 0, y: 2)
         .onAppear {
-            Task {
-                await appointmentManager.fetchAllAppointments()
+            fetchCompletedAppointments()
+        }
+    }
+    
+    private func fetchCompletedAppointments() {
+        Task {
+            do {
+                let firestore = Firestore.firestore()
+                let appointmentsCollection = "hms4_appointments"
+                
+                // First try with uppercase
+                let snapshotUpper = try await firestore.collection(appointmentsCollection)
+                    .whereField("status", isEqualTo: "COMPLETED")
+                    .getDocuments()
+                
+                // Then try with lowercase (might exist in the database)
+                let snapshotLower = try await firestore.collection(appointmentsCollection)
+                    .whereField("status", isEqualTo: "completed")
+                    .getDocuments()
+                    
+                // Combine the documents (avoiding duplicates by id)
+                var uniqueDocuments = [String: QueryDocumentSnapshot]()
+                
+                for doc in snapshotUpper.documents {
+                    uniqueDocuments[doc.documentID] = doc
+                }
+                
+                for doc in snapshotLower.documents {
+                    uniqueDocuments[doc.documentID] = doc
+                }
+                
+                print("DEBUG: Card - Found \(snapshotUpper.documents.count) uppercase COMPLETED appointments")
+                print("DEBUG: Card - Found \(snapshotLower.documents.count) lowercase completed appointments")
+                print("DEBUG: Card - Total unique completed appointments: \(uniqueDocuments.count)")
+                
+                var appointments: [AppointmentData] = []
+                
+                for (_, document) in uniqueDocuments {
+                    let data = document.data()
+                    
+                    // Get basic appointment data
+                    let id = document.documentID
+                    let patientId = data["patId"] as? String ?? ""
+                    let patientName = data["patName"] as? String ?? ""
+                    let doctorId = data["docId"] as? String ?? ""
+                    let doctorName = data["docName"] as? String ?? ""
+                    let patientRecordsId = data["patientRecordsId"] as? String ?? ""
+                    
+                    // Parse appointment date time
+                    var appointmentDateTime: Date? = nil
+                    if let dateTimeTimestamp = data["appointmentDateTime"] as? Timestamp {
+                        appointmentDateTime = dateTimeTimestamp.dateValue()
+                    } else if let dateStr = data["date"] as? String, let timeStr = data["time"] as? String {
+                        // Fallback to legacy date and time format
+                        let dateFormatter = DateFormatter()
+                        dateFormatter.dateFormat = "yyyy-MM-dd h:mm a"
+                        appointmentDateTime = dateFormatter.date(from: "\(dateStr) \(timeStr)")
+                    }
+                    
+                    // Parse status with case normalization
+                    var appointmentStatus: AppointmentData.AppointmentStatus? = nil
+                    if let statusStr = data["status"] as? String {
+                        let upperStatus = statusStr.uppercased()
+                        appointmentStatus = AppointmentData.AppointmentStatus(rawValue: upperStatus)
+                    }
+                    
+                    // Get duration and notes
+                    let durationMinutes = data["durationMinutes"] as? Int
+                    let notes = data["notes"] as? String
+                    let reason = data["reason"] as? String
+                    let date = data["date"] as? String
+                    
+                    let appointment = AppointmentData(
+                        id: id,
+                        patientId: patientId,
+                        patientName: patientName,
+                        doctorId: doctorId,
+                        doctorName: doctorName,
+                        patientRecordsId: patientRecordsId,
+                        appointmentDateTime: appointmentDateTime,
+                        status: appointmentStatus,
+                        durationMinutes: durationMinutes,
+                        notes: notes,
+                        date: date,
+                        reason: reason
+                    )
+                    
+                    appointments.append(appointment)
+                }
+                
+                print("DEBUG: Card - Total appointments after processing: \(appointments.count)")
+                
+                await MainActor.run {
+                    self.appointmentManager.allAppointments = appointments
+                }
+            } catch {
+                print("DEBUG: Card - Error fetching completed consultations: \(error)")
             }
         }
     }

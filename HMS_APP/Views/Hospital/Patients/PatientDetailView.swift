@@ -392,11 +392,7 @@ struct AppointmentCardView: View {
     let colorScheme: ColorScheme
     
     private var currentStatus: AppointmentData.AppointmentStatus {
-        // If appointment date is in the past, mark as completed
-        if let appointmentDate = appointment.appointmentDateTime,
-           appointmentDate < Date() {
-            return .completed
-        }
+        // Use the actual status from the database instead of auto-marking past appointments as completed
         return appointment.status ?? .scheduled
     }
     

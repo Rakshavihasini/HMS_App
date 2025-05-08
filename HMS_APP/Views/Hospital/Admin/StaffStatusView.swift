@@ -10,6 +10,7 @@ import SwiftUI
 struct StaffStatusView: View {
     @Environment(\.colorScheme) var colorScheme
     @StateObject private var staffService = StaffService()
+    @StateObject private var doctorService = DoctorService()
     
     var currentTheme: Theme {
         colorScheme == .dark ? Theme.dark : Theme.light
@@ -17,6 +18,24 @@ struct StaffStatusView: View {
     
     @State private var showingActionSheet = false
     @State private var selectedStaff: Staff?
+    
+    var allStaffMembers: [Staff] {
+        // Convert doctors to staff format and combine with staff
+        let doctorsAsStaff = doctorService.doctors.map { doctor in
+            Staff(
+                id: doctor.id,
+                name: doctor.name,
+                email: doctor.email,
+                dateOfBirth: doctor.dateOfBirth,
+                joinDate: nil,
+                educationalQualification: doctor.speciality,
+                certificates: nil,
+                staffRole: "Doctor"
+            )
+        }
+        
+        return staffService.staffMembers + doctorsAsStaff
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -34,7 +53,7 @@ struct StaffStatusView: View {
                 }
             }
             
-            if staffService.staffMembers.isEmpty {
+            if allStaffMembers.isEmpty {
                 VStack(spacing: 20) {
                     Spacer()
                     Image(systemName: "person.2.slash")
@@ -49,7 +68,7 @@ struct StaffStatusView: View {
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
-                        ForEach(staffService.staffMembers) { staff in
+                        ForEach(allStaffMembers) { staff in
                             StaffStatusCard(
                                 staff: staff,
                                 onMoreOptions: {
@@ -64,6 +83,7 @@ struct StaffStatusView: View {
         }
         .onAppear {
             staffService.fetchStaff()
+            doctorService.fetchDoctors()
         }
         .actionSheet(isPresented: $showingActionSheet) {
             ActionSheet(

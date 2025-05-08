@@ -11,8 +11,6 @@ import FirebaseFirestore
 struct RevenueCard: View {
     @Environment(\.colorScheme) var colorScheme
     @State private var currentRevenue = 0
-    @State private var targetRevenue = 15000 // Default target
-    @State private var percentComplete = 0.0
     @State private var isLoading = false
     
     var currentTheme: Theme {
@@ -41,37 +39,15 @@ struct RevenueCard: View {
                 
                 ZStack {
                     Circle()
-                        .stroke(currentTheme.secondary, lineWidth: 3)
+                        .fill(currentTheme.tertiary.opacity(0.1))
                         .frame(width: 36, height: 36)
-                    
-                    Circle()
-                        .trim(from: 0, to: CGFloat(percentComplete) / 100)
-                        .stroke(currentTheme.tertiary, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                        .frame(width: 36, height: 36)
-                        .rotationEffect(.degrees(-90))
                     
                     Image(systemName: "indianrupeesign.circle.fill")
                         .font(.system(size: 14))
                         .foregroundColor(currentTheme.tertiary)
                 }
             }
-            
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text("\(Int(percentComplete))% of target")
-                        .font(.caption)
-                        .foregroundColor(currentTheme.text.opacity(0.6))
-                    
-                    Spacer()
-                    
-                    Text("₹\(targetRevenue.formattedWithSeparator())")
-                        .font(.caption.bold())
-                        .foregroundColor(currentTheme.text.opacity(0.8))
-                }
-                
-                ProgressView(value: Double(currentRevenue), total: Double(targetRevenue))
-                    .tint(currentTheme.tertiary)
-            }
+
         }
         .padding()
         .background(currentTheme.card)
@@ -143,7 +119,6 @@ struct RevenueCard: View {
                 // Update the UI on the main thread
                 await MainActor.run {
                     self.currentRevenue = totalRevenue
-                    self.percentComplete = min(100.0, (Double(totalRevenue) / Double(targetRevenue)) * 100)
                     self.isLoading = false
                 }
             } catch {
@@ -152,7 +127,6 @@ struct RevenueCard: View {
                     self.isLoading = false
                     // Set default values in case of error
                     self.currentRevenue = 0
-                    self.percentComplete = 0
                 }
             }
         }
