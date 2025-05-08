@@ -135,18 +135,6 @@ struct StaffDetailCard: View {
             Text(staff.staffRole ?? "Staff")
                 .font(.caption)
                 .foregroundColor(currentTheme.text.opacity(0.6))
-            
-            HStack {
-                Spacer()
-                
-                Button(action: onMoreOptions) {
-                    Image(systemName: "ellipsis")
-                        .padding(8)
-                        .background(currentTheme.secondary)
-                        .foregroundColor(currentTheme.text)
-                        .cornerRadius(8)
-                }
-            }
         }
         .padding()
         .background(currentTheme.card)
