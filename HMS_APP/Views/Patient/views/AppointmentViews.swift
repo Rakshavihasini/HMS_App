@@ -293,13 +293,37 @@ struct AppointmentRescheduleView: View {
         
         // Parse the combined string into a Date
         if let newDateTime = dateFormatter.date(from: dateTimeString) {
-            // Update Firebase using the new Date object
+            // Update Firebase using a batch write
             Task {
                 do {
-                    try await appointmentManager.rescheduleAppointment(
-                        appointmentId: appointment.id,
-                        newDate: newDateTime
-                    )
+                    let db = Firestore.firestore()
+                    let batch = db.batch()
+                    
+                    // 1. Update the appointment
+                    let appointmentRef = db.collection("hms4_appointments").document(appointment.id)
+                    batch.updateData([
+                        "appointmentDateTime": newDateTime,
+                        "status": AppointmentData.AppointmentStatus.rescheduled.rawValue
+                    ], forDocument: appointmentRef)
+                    
+                    // 2. Find and update the associated transaction
+                    let transactionsQuery = db.collection("hms4_transactions")
+                        .whereField("appointmentId", isEqualTo: appointment.id)
+                    
+                    let transactionSnapshot = try await transactionsQuery.getDocuments()
+                    if let transactionDoc = transactionSnapshot.documents.first {
+                        let transactionRef = db.collection("hms4_transactions").document(transactionDoc.documentID)
+                        batch.updateData([
+                            "appointmentDateTime": newDateTime,
+                            "status": "rescheduled"
+                        ], forDocument: transactionRef)
+                    }
+                    
+                    // Commit the batch
+                    try await batch.commit()
+                    
+                    // Trigger rescheduling notification
+                    NotificationManager.shared.sendStatusChangeNotification(for: appointment, status: .rescheduled)
                     
                     await MainActor.run {
                         isLoading = false
@@ -307,7 +331,9 @@ struct AppointmentRescheduleView: View {
                     }
                 } catch {
                     print("Error rescheduling: \(error)")
-                    isLoading = false
+                    await MainActor.run {
+                        isLoading = false
+                    }
                 }
             }
         } else {
