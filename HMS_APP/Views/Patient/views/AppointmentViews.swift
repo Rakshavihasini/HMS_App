@@ -110,7 +110,7 @@ struct AppointmentDetailView: View {
                             Button(action: {
                                 print("DEBUG: Reschedule button pressed")
                                 showRescheduleModal = true
-                                presentationMode.wrappedValue.dismiss()
+                                // Don't dismiss the sheet here, let the parent handle it
                             }) {
                                 HStack {
                                     Image(systemName: "calendar.badge.plus")

@@ -218,6 +218,7 @@ struct CurrentAppointmentsSection: View {
     let appointments: [AppointmentData]
     @EnvironmentObject var appointmentManager: AppointmentManager
     @State private var selectedAppointment: AppointmentData? = nil
+    @State private var appointmentToReschedule: AppointmentData? = nil
     @State private var showRescheduleModal = false
     @Environment(\.colorScheme) var colorScheme
     
@@ -230,7 +231,9 @@ struct CurrentAppointmentsSection: View {
                     .padding(.horizontal)
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        selectedAppointment = appointment
+                        self.selectedAppointment = appointment
+                        self.appointmentToReschedule = nil
+                        self.showRescheduleModal = false
                     }
             }
         }
@@ -239,19 +242,28 @@ struct CurrentAppointmentsSection: View {
                 appointment: appointment,
                 showRescheduleModal: $showRescheduleModal,
                 appointmentManager: appointmentManager,
-                onDismiss: { 
-                    // Will be handled by onDisappear
+                onDismiss: {
+                    if !self.showRescheduleModal {
+                        self.selectedAppointment = nil
+                    }
                 }
             )
-            .onDisappear {
-                if !showRescheduleModal {
-                    selectedAppointment = nil
+            .onChange(of: self.showRescheduleModal) { newValue in
+                if newValue {
+                    // Capture the current appointment for the reschedule sheet
+                    self.appointmentToReschedule = appointment
+                    // Dismiss the current detail sheet
+                    self.selectedAppointment = nil
                 }
             }
         }
         .sheet(isPresented: $showRescheduleModal) {
-            if let appointment = selectedAppointment {
-                AppointmentRescheduleView(appointment: appointment)
+            if let appointmentForReschedule = self.appointmentToReschedule {
+                AppointmentRescheduleView(appointment: appointmentForReschedule)
+                    .onDisappear {
+                        self.showRescheduleModal = false
+                        self.appointmentToReschedule = nil
+                    }
             } else {
                 Text("No appointment selected for rescheduling")
                     .foregroundColor(colorScheme == .dark ? .white : .primary)
