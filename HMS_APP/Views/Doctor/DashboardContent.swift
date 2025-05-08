@@ -18,22 +18,37 @@ struct DashboardContent: View {
     @State private var selectedAppointmentForDetail: AppointmentData? = nil // Add state for selected appointment
     @State private var showingRescheduleView = false // Add state for reschedule navigation
     @State private var selectedAppointmentForReschedule: AppointmentData? = nil // Add state for selected appointment reschedule
+    @State private var isDataLoaded = false
 
     private var theme: Theme {
         colorScheme == .dark ? Theme.dark : Theme.light
     }
 
     var body: some View {
+        // Use a conditional view to ensure data is loaded first
+        Group {
+            if !isDataLoaded {
+                DataLoaderView(isDataLoaded: $isDataLoaded)
+                    .environmentObject(doctorManager)
+                    .environmentObject(appointmentViewModel)
+            } else {
+                mainDashboardContent
+            }
+        }
+    }
+    
+    // Extract the main content into a separate view
+    private var mainDashboardContent: some View {
         func greetingMessage() -> String {
-                let currentHour = Calendar.current.component(.hour, from: Date())
-                    if currentHour >= 5 && currentHour < 12 {
-                        return "Good Morning"
-                    } else if currentHour >= 12 && currentHour < 17 {
-                        return "Good Afternoon"
-                    } else {
-                        return "Good Evening"
-                    }
-                }
+            let currentHour = Calendar.current.component(.hour, from: Date())
+            if currentHour >= 5 && currentHour < 12 {
+                return "Good Morning"
+            } else if currentHour >= 12 && currentHour < 17 {
+                return "Good Afternoon"
+            } else {
+                return "Good Evening"
+            }
+        }
         
         return VStack(alignment: .leading) {
             HStack {
@@ -178,20 +193,77 @@ struct DashboardContent: View {
         }
         .navigationBarBackButtonHidden(true)
         .background(theme.background)
-        .task {
-            if let userInfo = doctorManager.currentUserInfo, let doctorId = userInfo["id"] as? String {
-                await appointmentViewModel.fetchAppointments(for: doctorId)
-            }
-        }
-        .onAppear {
-            // Check if data needs to be loaded
-            if appointmentViewModel.upcomingAppointments.isEmpty && appointmentViewModel.pastAppointments.isEmpty {
-                Task {
-                    if let userInfo = doctorManager.currentUserInfo, let doctorId = userInfo["id"] as? String {
-                        await appointmentViewModel.fetchAppointments(for: doctorId)
+    }
+}
+
+// MARK: - Data Loader View
+struct DataLoaderView: View {
+    @EnvironmentObject var doctorManager: DoctorManager
+    @EnvironmentObject var appointmentViewModel: Appointment
+    @Binding var isDataLoaded: Bool
+    @Environment(\.colorScheme) private var colorScheme
+    
+    private var theme: Theme {
+        colorScheme == .dark ? Theme.dark : Theme.light
+    }
+    
+    var body: some View {
+        // Create a placeholder view with the same structure as mainDashboardContent
+        VStack(alignment: .leading) {
+            // Header placeholder with same height
+            HStack {
+                VStack(alignment: .leading) {
+                    HStack{
+                        Text("Loading...")
+                            .font(.title)
+                            .bold()
+                            .foregroundColor(theme.text)
+                        Spacer()
                     }
+                    
+                    Text("Doctor")
+                        .foregroundColor(.gray)
                 }
+                Spacer()
             }
+            .padding(.horizontal)
+            
+            // Tab bar placeholder with same height
+            HStack {}
+                .frame(height: 45)
+                .padding(.horizontal)
+            
+            // Center loading indicator where content would be
+            Spacer()
+            VStack {
+                ProgressView("Loading data...")
+                    .padding()
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+            Spacer()
+        }
+        .navigationBarBackButtonHidden(true)
+        .background(theme.background)
+        .task {
+            // Add a small delay to ensure smooth transition
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+            
+            // Ensure doctor info is loaded
+            if doctorManager.currentUserInfo == nil {
+                await doctorManager.fetchCurrentUserInfo()
+            }
+            
+            // Load appointments if doctor ID is available
+            if let userInfo = doctorManager.currentUserInfo, 
+               let doctorId = userInfo["id"] as? String {
+                await appointmentViewModel.fetchAppointments(for: doctorId)
+                print("Loaded appointments for doctor ID: \(doctorId)")
+            } else {
+                print("No doctor ID available yet")
+            }
+            
+            // Mark as loaded
+            isDataLoaded = true
         }
     }
 }
