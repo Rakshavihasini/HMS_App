@@ -58,6 +58,18 @@ struct RevenueDetailView: View {
         return "-"
     }
     
+    // Add a computed property for the peak label based on time range
+    var peakLabel: String {
+        switch selectedTimeRange {
+        case .day:
+            return "Peak Hour"
+        case .week:
+            return "Peak Day"
+        case .month:
+            return "Peak Date"
+        }
+    }
+    
     // MARK: - Helper function for creating the chart
     func revenueChart() -> some View {
         if isLoading {
@@ -196,7 +208,7 @@ struct RevenueDetailView: View {
                      )
                      
                      SummaryCard(
-                         title: "Peak Day",
+                         title: peakLabel,
                          value: peakDay,
                          icon: "chart.line.uptrend.xyaxis",
                          color: .purple
