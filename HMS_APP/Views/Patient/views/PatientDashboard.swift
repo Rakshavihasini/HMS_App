@@ -16,9 +16,24 @@ struct PatientDashboardView: View {
     @Environment(\.colorScheme) var colorScheme
 
     var currentAppointments: [AppointmentData] {
-        appointmentManager.patientAppointments.filter {
-            $0.status == .scheduled || $0.status == .inProgress || $0.status == .rescheduled || $0.status == .noShow // Added .noShow for WAITING status
-        }
+        let now = Date()
+        return appointmentManager.patientAppointments
+            .filter { appointment in
+                guard let appointmentDate = appointment.appointmentDateTime else { return false }
+                // Only include future appointments and appointments with valid status
+                return appointmentDate > now && 
+                       (appointment.status == .scheduled || 
+                        appointment.status == .inProgress || 
+                        appointment.status == .rescheduled || 
+                        appointment.status == .noShow)
+            }
+            .sorted { appointment1, appointment2 in
+                guard let date1 = appointment1.appointmentDateTime,
+                      let date2 = appointment2.appointmentDateTime else {
+                    return false
+                }
+                return date1 < date2 // Sort in ascending order (earliest first)
+            }
     }
 
     var body: some View {
@@ -680,5 +695,12 @@ struct DashboardSectionHeader<Destination: View>: View {
             }
         }
         .padding(.horizontal)
+    }
+}
+
+// MARK: - Date Extension
+extension Date {
+    var startOfDay: Date {
+        return Calendar.current.startOfDay(for: self)
     }
 }
