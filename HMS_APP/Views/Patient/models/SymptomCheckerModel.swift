@@ -96,7 +96,8 @@ class SymptomCheckerViewModel: ObservableObject {
     @Published var selectedMedicalHistory: [MedicalHistory] = []
     @Published var coughType: CoughType = .none
     @Published var onsetType: OnsetType = .notSure
-    @Published var recommendedDoctors: [DoctorRecommendation] = []
+    @Published var recommendedDoctors: [DoctorProfile] = []
+    @Published var isLoadingDoctors = false
     
     // Map common medical conditions to specializations
     private let conditionToSpecialization: [String: String] = [
@@ -104,11 +105,11 @@ class SymptomCheckerViewModel: ObservableObject {
         "Asthma": "Pulmonologist",
         "Arthritis": "Rheumatologist",
         "Bronchitis": "Pulmonologist",
-        "Common Cold": "General Practitioner",
+        "Common Cold": "General Physician",
         "COVID-19": "Infectious Disease",
         "Depression": "Psychiatrist",
         "Diabetes": "Endocrinologist",
-        "Flu": "General Practitioner",
+        "Flu": "General Physician",
         "Gastritis": "Gastroenterologist",
         "Heart Disease": "Cardiologist",
         "Hypertension": "Cardiologist",
@@ -117,6 +118,23 @@ class SymptomCheckerViewModel: ObservableObject {
         "Sinusitis": "Otolaryngologist",
         "Strep Throat": "Otolaryngologist",
         "Urinary Tract Infection": "Urologist"
+    ]
+    
+    // Specialization mapping
+    private let specializationMapping: [String: String] = [
+        "Allergist": "Immunology",
+        "Cardiologist": "Cardiology",
+        "Dermatologist": "Dermatology",
+        "Endocrinologist": "Endocrinology",
+        "Gastroenterologist": "Gastroenterology",
+        "General Physician": "General Physician",
+        "Infectious Disease": "Infectious Disease",
+        "Neurologist": "Neurology",
+        "Otolaryngologist": "ENT",
+        "Psychiatrist": "Psychiatry",
+        "Pulmonologist": "Pulmonology",
+        "Rheumatologist": "Rheumatology",
+        "Urologist": "Urology"
     ]
     
     let commonSymptoms = [
@@ -388,13 +406,7 @@ class SymptomCheckerViewModel: ObservableObject {
                 let condition = report.possibleConditions.first ?? "Medical condition"
                 
                 // Create a single recommendation with all doctors
-                self.recommendedDoctors = [
-                    DoctorRecommendation(
-                        condition: condition,
-                        specialization: "All Available Doctors",
-                        doctors: doctors
-                    )
-                ]
+                self.recommendedDoctors = doctors
                 
                 // Print the recommended doctors to console
                 printRecommendedDoctors()
@@ -464,40 +476,306 @@ class SymptomCheckerViewModel: ObservableObject {
         }
         
         print("\n=== RECOMMENDED DOCTORS ===\n")
-        for (index, recommendation) in recommendedDoctors.enumerated() {
+        for (index, doctor) in recommendedDoctors.enumerated() {
             print("RECOMMENDATION #\(index + 1)")
-            print("For condition: \(recommendation.condition)")
-            print("Specialization: \(recommendation.specialization)")
-            print("Recommended doctors:")
+            print("For condition: \(doctor.speciality)")
+            print("Specialization: \(doctor.speciality)")
+            print("Recommended doctor:")
             
-            for (docIndex, doctor) in recommendation.doctors.enumerated() {
-                print("  \(docIndex + 1). Dr. \(doctor.name)")
-                print("     Speciality: \(doctor.speciality)")
-                if let age = doctor.age { print("     Age: \(age)") }
-                if let gender = doctor.gender { print("     Gender: \(gender)") }
-                if let lastActive = doctor.lastActive { print("     Last Active: \(lastActive)") }
-                if let licenseDetails = doctor.licenseDetails {
-                    print("     License Details:")
-                    if let council = licenseDetails.councilName { print("        Council: \(council)") }
-                    if let regNum = licenseDetails.registrationNumber { print("        Registration #: \(regNum)") }
-                    if let status = licenseDetails.verificationStatus { print("        Status: \(status)") }
-                    if let year = licenseDetails.yearOfRegistration { print("        Year: \(year)") }
-                    if let verifiedAt = licenseDetails.verifiedAt { print("        Verified At: \(verifiedAt.dateValue())") }
-                }
-                if let schedule = doctor.schedule {
-                    print("     Schedule:")
-                    if let fullDayLeaves = schedule.fullDayLeaves {
-                        print("        Full Day Leaves: \(fullDayLeaves)")
-                    }
-                    if let leaveTimeSlots = schedule.leaveTimeSlots {
-                        print("        Leave Time Slots: \(leaveTimeSlots)")
-                    }
-                }
-                if let appwriteUserId = doctor.appwriteUserId { print("     Appwrite User ID: \(appwriteUserId)") }
-                if let database = doctor.database { print("     Database: \(database)") }
-                print("")
+            print("  Dr. \(doctor.name)")
+            print("     Speciality: \(doctor.speciality)")
+            if let age = doctor.age { print("     Age: \(age)") }
+            if let gender = doctor.gender { print("     Gender: \(gender)") }
+            if let lastActive = doctor.lastActive { print("     Last Active: \(lastActive)") }
+            if let licenseDetails = doctor.licenseDetails {
+                print("     License Details:")
+                if let council = licenseDetails.councilName { print("        Council: \(council)") }
+                if let regNum = licenseDetails.registrationNumber { print("        Registration #: \(regNum)") }
+                if let status = licenseDetails.verificationStatus { print("        Status: \(status)") }
+                if let year = licenseDetails.yearOfRegistration { print("        Year: \(year)") }
+                if let verifiedAt = licenseDetails.verifiedAt { print("        Verified At: \(verifiedAt.dateValue())") }
             }
-            print("----------------------------")
+            if let schedule = doctor.schedule {
+                print("     Schedule:")
+                if let fullDayLeaves = schedule.fullDayLeaves {
+                    print("        Full Day Leaves: \(fullDayLeaves)")
+                }
+                if let leaveTimeSlots = schedule.leaveTimeSlots {
+                    print("        Leave Time Slots: \(leaveTimeSlots)")
+                }
+            }
+            if let appwriteUserId = doctor.appwriteUserId { print("     Appwrite User ID: \(appwriteUserId)") }
+            if let database = doctor.database { print("     Database: \(database)") }
+            print("")
+        }
+        print("----------------------------")
+    }
+    
+    // Fetch doctors based on conditions
+    func fetchDoctorsByConditions(_ conditions: [String]) async {
+        self.isLoadingDoctors = true
+        print("Fetching doctors for conditions: \(conditions)")
+        
+        // Common condition keywords to specialty mappings
+        let conditionKeywords: [String: String] = [
+            // Respiratory conditions
+            "cough": "Pulmonology",
+            "asthma": "Pulmonology",
+            "bronchitis": "Pulmonology",
+            "pneumonia": "Pulmonology",
+            "respiratory": "Pulmonology",
+            "lung": "Pulmonology",
+            "breathing": "Pulmonology",
+            "copd": "Pulmonology",
+            
+            // Cardiac conditions
+            "heart": "Cardiology",
+            "cardiac": "Cardiology",
+            "chest pain": "Cardiology",
+            "hypertension": "Cardiology",
+            "blood pressure": "Cardiology",
+            "cardiovascular": "Cardiology",
+            "palpitation": "Cardiology",
+            
+            // Neurological conditions
+            "migraine": "Neurology",
+            "headache": "Neurology",
+            "nerve": "Neurology",
+            "seizure": "Neurology",
+            "epilepsy": "Neurology",
+            "stroke": "Neurology",
+            "neurological": "Neurology",
+            "brain": "Neurology",
+            
+            // Gastrointestinal conditions
+            "stomach": "Gastroenterology",
+            "gastritis": "Gastroenterology",
+            "digestive": "Gastroenterology",
+            "bowel": "Gastroenterology",
+            "intestinal": "Gastroenterology",
+            "acid reflux": "Gastroenterology",
+            "ulcer": "Gastroenterology",
+            "abdominal": "Gastroenterology",
+            
+            // ENT conditions
+            "throat": "ENT",
+            "ear": "ENT",
+            "nose": "ENT",
+            "sinus": "ENT",
+            "sinusitis": "ENT",
+            "tonsil": "ENT",
+            "pharyngitis": "ENT",
+            
+            // Dermatological conditions
+            "skin": "Dermatology",
+            "rash": "Dermatology",
+            "dermatitis": "Dermatology",
+            "eczema": "Dermatology",
+            "acne": "Dermatology",
+            
+            // Orthopedic conditions
+            "bone": "Orthopedics",
+            "joint": "Orthopedics",
+            "fracture": "Orthopedics",
+            "arthritis": "Orthopedics",
+            "muscle": "Orthopedics",
+            "back pain": "Orthopedics",
+            "sprain": "Orthopedics",
+            
+            // General conditions
+            "fever": "General Physician",
+            "cold": "General Physician",
+            "flu": "General Physician",
+            "infection": "General Physician",
+            "virus": "General Physician",
+            "fatigue": "General Physician"
+        ]
+        
+        // Extract candidate specialties based on condition keywords
+        var targetSpecialties = Set<String>()
+        
+        // Process each condition against our keywords
+        for condition in conditions {
+            var matchFound = false
+            
+            // Look for keyword matches within the condition
+            for (keyword, specialty) in conditionKeywords {
+                if condition.lowercased().contains(keyword.lowercased()) {
+                    targetSpecialties.insert(specialty)
+                    matchFound = true
+                    print("Matched condition '\(condition)' to specialty '\(specialty)' via keyword '\(keyword)'")
+                }
+            }
+            
+            // If no specific match found, add General Physician as fallback
+            if !matchFound {
+                targetSpecialties.insert("General Physician")
+                print("No specific match for condition '\(condition)', defaulting to General Physician")
+            }
+        }
+        
+        // Always include General Physician as a fallback option
+        targetSpecialties.insert("General Physician")
+        
+        print("Target specialties: \(targetSpecialties)")
+        
+        // Fetch doctors from Firestore
+        do {
+            let snapshot = try await db.collection("hms4_doctors").getDocuments()
+            print("Found \(snapshot.documents.count) total doctors")
+            
+            var matchedDoctors: [DoctorProfile] = []
+            
+            for document in snapshot.documents {
+                let data = document.data()
+                let id = document.documentID
+                
+                guard let name = data["name"] as? String,
+                      let speciality = data["speciality"] as? String else {
+                    continue
+                }
+                
+                // Normalize the specialty string
+                let normalizedSpecialty = speciality.trimmingCharacters(in: .whitespacesAndNewlines)
+                
+                // Check if this doctor's specialty matches any of our target specialties
+                var isMatched = false
+                for targetSpecialty in targetSpecialties {
+                    // Check for partial matches in both directions to be more flexible
+                    if normalizedSpecialty.lowercased().contains(targetSpecialty.lowercased()) ||
+                       targetSpecialty.lowercased().contains(normalizedSpecialty.lowercased()) {
+                        isMatched = true
+                        print("Matched doctor: \(name) with specialty '\(normalizedSpecialty)' to target '\(targetSpecialty)'")
+                        break
+                    }
+                }
+                
+                // Include General Physician by default when no specific match
+                if !isMatched && normalizedSpecialty.lowercased().contains("general") {
+                    isMatched = true
+                    print("Including general physician: \(name)")
+                }
+                
+                if isMatched {
+                    // Parse schedule
+                    var schedule: DoctorSchedules? = nil
+                    if let scheduleData = data["schedule"] as? [String: Any] {
+                        let fullDayLeaves = scheduleData["fullDayLeaves"] as? [String]
+                        let leaveTimeSlots = scheduleData["leaveTimeSlots"] as? [String]
+                        schedule = DoctorSchedules(fullDayLeaves: fullDayLeaves, leaveTimeSlots: leaveTimeSlots)
+                    }
+                    
+                    // Parse licenseDetails
+                    var licenseDetails: LicenseDetails? = nil
+                    if let licenseData = data["licenseDetails"] as? [String: Any] {
+                        let councilName = licenseData["councilName"] as? String
+                        let registrationNumber = licenseData["registrationNumber"] as? Int
+                        let verificationStatus = licenseData["verificationStatus"] as? String
+                        let verifiedAt = licenseData["verifiedAt"] as? Timestamp
+                        let yearOfRegistration = licenseData["yearOfRegistration"] as? Int
+                        licenseDetails = LicenseDetails(
+                            councilName: councilName,
+                            registrationNumber: registrationNumber,
+                            verificationStatus: verificationStatus,
+                            verifiedAt: verifiedAt,
+                            yearOfRegistration: yearOfRegistration
+                        )
+                    }
+                    
+                    let doctor = DoctorProfile(
+                        id: id,
+                        name: name,
+                        speciality: speciality,
+                        database: data["database"] as? String,
+                        age: data["age"] as? Int,
+                        schedule: schedule,
+                        appwriteUserId: data["appwriteUserId"] as? String,
+                        gender: data["gender"] as? String,
+                        licenseDetails: licenseDetails,
+                        createdAt: data["createdAt"] as? Timestamp,
+                        lastActive: data["lastActive"] as? String
+                    )
+                    
+                    matchedDoctors.append(doctor)
+                }
+            }
+            
+            print("Found \(matchedDoctors.count) matching doctors")
+            
+            // If no matching doctors found, try to find at least one general physician
+            if matchedDoctors.isEmpty {
+                print("No matches found, attempting to find any general physician")
+                
+                for document in snapshot.documents {
+                    let data = document.data()
+                    let id = document.documentID
+                    
+                    guard let name = data["name"] as? String,
+                          let speciality = data["speciality"] as? String else {
+                        continue
+                    }
+                    
+                    if speciality.lowercased().contains("general") {
+                        print("Found general physician as fallback: \(name)")
+                        
+                        // Create the doctor profile
+                        let doctor = DoctorProfile(
+                            id: id,
+                            name: name,
+                            speciality: speciality,
+                            database: data["database"] as? String,
+                            age: data["age"] as? Int,
+                            schedule: nil,
+                            appwriteUserId: data["appwriteUserId"] as? String,
+                            gender: data["gender"] as? String,
+                            licenseDetails: nil,
+                            createdAt: data["createdAt"] as? Timestamp,
+                            lastActive: data["lastActive"] as? String
+                        )
+                        
+                        matchedDoctors.append(doctor)
+                        break
+                    }
+                }
+                
+                // If still no doctors found, show any doctor
+                if matchedDoctors.isEmpty && !snapshot.documents.isEmpty {
+                    print("Still no matches, using first available doctor")
+                    let document = snapshot.documents[0]
+                    let data = document.data()
+                    let id = document.documentID
+                    
+                    if let name = data["name"] as? String,
+                       let speciality = data["speciality"] as? String {
+                        
+                        let doctor = DoctorProfile(
+                            id: id,
+                            name: name,
+                            speciality: speciality,
+                            database: data["database"] as? String,
+                            age: data["age"] as? Int,
+                            schedule: nil,
+                            appwriteUserId: data["appwriteUserId"] as? String,
+                            gender: data["gender"] as? String,
+                            licenseDetails: nil,
+                            createdAt: data["createdAt"] as? Timestamp,
+                            lastActive: data["lastActive"] as? String
+                        )
+                        
+                        matchedDoctors.append(doctor)
+                    }
+                }
+            }
+            
+            await MainActor.run {
+                self.recommendedDoctors = matchedDoctors
+                self.isLoadingDoctors = false
+            }
+        } catch {
+            print("Error fetching doctors: \(error.localizedDescription)")
+            await MainActor.run {
+                self.isLoadingDoctors = false
+            }
         }
     }
 } 
