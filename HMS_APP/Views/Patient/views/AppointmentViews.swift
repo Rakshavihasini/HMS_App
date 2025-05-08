@@ -125,8 +125,22 @@ struct AppointmentDetailView: View {
                             
                             Button(action: {
                                 print("DEBUG: Cancel appointment button pressed")
-                                onCancel()
-                                presentationMode.wrappedValue.dismiss()
+                                Task {
+                                    do {
+                                        // Update Firestore
+                                        try await Firestore.firestore().collection("hms4_appointments").document(appointment.id).updateData([
+                                            "status": AppointmentData.AppointmentStatus.cancelled.rawValue
+                                        ])
+                                        // Trigger cancellation notification
+                                        NotificationManager.shared.sendStatusChangeNotification(for: appointment, status: .cancelled)
+                                        // Call the onCancel closure
+                                        onCancel()
+                                        // Dismiss the view
+                                        presentationMode.wrappedValue.dismiss()
+                                    } catch {
+                                        print("❌ Failed to cancel appointment: \(error.localizedDescription)")
+                                    }
+                                }
                             }) {
                                 HStack {
                                     Image(systemName: "xmark.circle")

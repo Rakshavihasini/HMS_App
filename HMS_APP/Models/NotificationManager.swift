@@ -51,7 +51,6 @@ class NotificationManager {
     }
 
     private func showSettingsAlert() {
-        // In SwiftUI, open Settings directly for permission changes
         if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
             UIApplication.shared.open(settingsURL)
             print("ℹ️ Redirected to Settings for notification permissions")
@@ -80,7 +79,6 @@ class NotificationManager {
         content.sound = .default
         content.userInfo = ["type": "welcome"]
 
-        // Use a minimal delay to ensure the notification is scheduled
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
 
         let request = UNNotificationRequest(identifier: "welcomeNotification", content: content, trigger: trigger)
@@ -98,11 +96,20 @@ class NotificationManager {
 
     func scheduleAppointmentNotifications(for appointment: AppointmentData) {
         guard let appointmentDateTime = appointment.appointmentDateTime else {
-            print("❌ No appointment date/time provided")
+            print("❌ No appointment date/time provided for appointment ID: \(appointment.id)")
             return
         }
 
-        // Define reminder times: 1 day before and 1 hour before
+        guard let status = appointment.status else {
+            print("❌ No status provided for appointment ID: \(appointment.id), skipping notification scheduling")
+            return
+        }
+
+        guard status != .cancelled && status != .completed && status != .noShow else {
+            print("ℹ️ Skipping notification scheduling for appointment ID: \(appointment.id) with status: \(status.rawValue)")
+            return
+        }
+
         let reminderIntervals: [TimeInterval] = [
             24 * 60 * 60, // 1 day
             60 * 60       // 1 hour
@@ -112,7 +119,6 @@ class NotificationManager {
         dateFormatter.dateStyle = .medium
         dateFormatter.timeStyle = .short
 
-        // Schedule notifications for both patient and doctor
         let userIds = [appointment.patientId, appointment.doctorId]
 
         for userId in userIds {
@@ -120,9 +126,8 @@ class NotificationManager {
                 let reminderDate = appointmentDateTime.addingTimeInterval(-interval)
                 let timeInterval = reminderDate.timeIntervalSinceNow
 
-                // Only schedule if the reminder time is in the future
                 guard timeInterval > 0 else {
-                    print("ℹ️ Skipping past reminder for \(userId) at \(dateFormatter.string(from: reminderDate))")
+                    print("ℹ️ Skipping past reminder for user \(userId) at \(dateFormatter.string(from: reminderDate)) for appointment ID: \(appointment.id)")
                     continue
                 }
 
@@ -145,10 +150,72 @@ class NotificationManager {
                         if let error = error {
                             print("❌ Failed to schedule appointment notification \(identifier): \(error.localizedDescription)")
                         } else {
-                            print("✅ Scheduled notification \(identifier) for \(dateFormatter.string(from: reminderDate))")
+                            print("✅ Scheduled notification \(identifier) for \(dateFormatter.string(from: reminderDate)) for appointment ID: \(appointment.id)")
                         }
                     }
                 }
+            }
+        }
+    }
+
+    func sendStatusChangeNotification(for appointment: AppointmentData, status: AppointmentData.AppointmentStatus) {
+        guard let appointmentDateTime = appointment.appointmentDateTime else {
+            print("❌ No appointment date/time for status change notification for appointment ID: \(appointment.id)")
+            return
+        }
+
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .medium
+        dateFormatter.timeStyle = .short
+
+        let userIds = [appointment.patientId, appointment.doctorId]
+        let statusString: String
+        switch status {
+        case .scheduled:
+            statusString = "scheduled"
+        case .inProgress:
+            statusString = "in progress"
+        case .completed:
+            statusString = "completed"
+        case .cancelled:
+            statusString = "cancelled"
+        case .noShow:
+            statusString = "marked as no-show"
+        case .rescheduled:
+            statusString = "rescheduled"
+        }
+
+        for userId in userIds {
+            let content = UNMutableNotificationContent()
+            content.title = "Appointment Status Update 🩺"
+            content.body = "Your appointment with \(appointment.doctorName) on \(dateFormatter.string(from: appointmentDateTime)) has been \(statusString)."
+            content.sound = .default
+            content.userInfo = [
+                "appointmentId": appointment.id,
+                "userId": userId,
+                "status": status.rawValue
+            ]
+
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+            let identifier = "status_change_\(appointment.id)_\(userId)_\(status.rawValue)"
+
+            let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+
+            UNUserNotificationCenter.current().add(request) { error in
+                DispatchQueue.main.async {
+                    if let error = error {
+                        print("❌ Failed to schedule status change notification \(identifier): \(error.localizedDescription)")
+                    } else {
+                        print("✅ Scheduled status change notification \(identifier) for status \(statusString) for appointment ID: \(appointment.id)")
+                    }
+                }
+            }
+        }
+
+        // Cancel reminders if the appointment is cancelled, completed, or no-show
+        if status == .cancelled || status == .completed || status == .noShow {
+            for userId in userIds {
+                self.cancelAppointmentNotifications(for: appointment.id, userId: userId)
             }
         }
     }
