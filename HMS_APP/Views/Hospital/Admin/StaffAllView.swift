@@ -11,6 +11,7 @@ import FirebaseFirestore
 struct StaffAllView: View {
     @Environment(\.colorScheme) var colorScheme
     @StateObject private var staffService = StaffService()
+    @StateObject private var doctorService = DoctorService()
     
     var currentTheme: Theme {
         colorScheme == .dark ? Theme.dark : Theme.light
@@ -19,9 +20,27 @@ struct StaffAllView: View {
     @State private var showingActionSheet = false
     @State private var selectedStaff: Staff?
     
+    var allStaffMembers: [Staff] {
+        // Convert doctors to staff format and combine with staff
+        let doctorsAsStaff = doctorService.doctors.map { doctor in
+            Staff(
+                id: doctor.id,
+                name: doctor.name,
+                email: doctor.email,
+                dateOfBirth: doctor.dateOfBirth,
+                joinDate: nil,
+                educationalQualification: doctor.speciality,
+                certificates: nil,
+                staffRole: "Doctor"
+            )
+        }
+        
+        return staffService.staffMembers + doctorsAsStaff
+    }
+    
     var body: some View {
         VStack {
-            if staffService.staffMembers.isEmpty {
+            if allStaffMembers.isEmpty {
                 VStack(spacing: 20) {
                     Spacer()
                     Image(systemName: "person.2.slash")
@@ -42,7 +61,7 @@ struct StaffAllView: View {
                         GridItem(.flexible()),
                         GridItem(.flexible())
                     ], spacing: 16) {
-                        ForEach(staffService.staffMembers) { staff in
+                        ForEach(allStaffMembers) { staff in
                             StaffDetailCard(
                                 staff: staff,
                                 onMoreOptions: {
@@ -59,6 +78,7 @@ struct StaffAllView: View {
         .navigationTitle("All Staff")
         .onAppear {
             staffService.fetchStaff()
+            doctorService.fetchDoctors()
         }
         .actionSheet(isPresented: $showingActionSheet) {
             ActionSheet(
