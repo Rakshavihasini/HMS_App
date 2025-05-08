@@ -179,26 +179,60 @@ struct AdminAppointmentView: View {
     private func confirmPayment(for appointment: AppointmentData) {
         isLoading = true
         
-        db.collection("\(dbName)_appointments").document(appointment.id).updateData([
-            "paymentStatus": "completed",
-            "status": AppointmentData.AppointmentStatus.scheduled.rawValue,
-            "adminConfirmed": true
-        ]) { error in
-            if let error = error {
-                alertMessage = "Error confirming payment: \(error.localizedDescription)"
-                showingAlert = true
-                isLoading = false
-                return
+        // Find the transaction for this appointment
+        let db = Firestore.firestore()
+        db.collection("\(dbName)_transactions")
+            .whereField("appointmentId", isEqualTo: appointment.id)
+            .getDocuments { snapshot, error in
+                if let error = error {
+                    alertMessage = "Error fetching transaction: \(error.localizedDescription)"
+                    showingAlert = true
+                    isLoading = false
+                    return
+                }
+                
+                guard let documents = snapshot?.documents, let transactionDoc = documents.first else {
+                    alertMessage = "Transaction not found"
+                    showingAlert = true
+                    isLoading = false
+                    return
+                }
+                
+                let transactionId = transactionDoc.documentID
+                
+                // Create a batch write to update both collections atomically
+                let batch = db.batch()
+                
+                // Update transaction status to completed
+                let transactionRef = db.collection("\(dbName)_transactions").document(transactionId)
+                batch.updateData(["paymentStatus": "completed"], forDocument: transactionRef)
+                
+                // Update appointment status to scheduled
+                let appointmentRef = db.collection("\(dbName)_appointments").document(appointment.id)
+                batch.updateData([
+                    "paymentStatus": "completed",
+                    "status": AppointmentData.AppointmentStatus.scheduled.rawValue,
+                    "adminConfirmed": true
+                ], forDocument: appointmentRef)
+                
+                // Commit the batch
+                batch.commit { error in
+                    if let error = error {
+                        alertMessage = "Error confirming payment: \(error.localizedDescription)"
+                        showingAlert = true
+                        isLoading = false
+                        return
+                    }
+                    
+                    // Payment confirmed successfully
+                    alertMessage = "Payment confirmed successfully and appointment has been scheduled"
+                    showingAlert = true
+                    selectedAppointment = nil
+                    
+                    // Refresh the appointments list
+                    fetchAppointments()
+                }
             }
-            
-            // Payment confirmed successfully
-            alertMessage = "Payment confirmed successfully and appointment has been scheduled"
-            showingAlert = true
-            selectedAppointment = nil
-            
-            // Refresh the appointments list
-            fetchAppointments()
-        }
     }
     
     private func formattedDate(_ appointment: AppointmentData) -> String {
