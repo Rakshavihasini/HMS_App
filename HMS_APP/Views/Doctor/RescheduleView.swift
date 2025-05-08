@@ -202,7 +202,7 @@ struct RescheduleView: View {
                     } else {
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                             ForEach(morningSlots, id: \.time) { slot in
-                                TimeSlotButton(
+                                RescheduleTimeSlotButton(
                                     timeSlot: slot,
                                     isSelected: selectedNewTimeSlot?.time == slot.time,
                                     theme: theme
@@ -225,7 +225,7 @@ struct RescheduleView: View {
                     } else {
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                             ForEach(afternoonSlots, id: \.time) { slot in
-                                TimeSlotButton(
+                                RescheduleTimeSlotButton(
                                     timeSlot: slot,
                                     isSelected: selectedNewTimeSlot?.time == slot.time,
                                     theme: theme
@@ -336,7 +336,7 @@ struct RescheduleView: View {
     }
 }
 
-struct TimeSlotButton: View {
+struct RescheduleTimeSlotButton: View {
     let timeSlot: TimeSlot
     let isSelected: Bool
     let theme: Theme

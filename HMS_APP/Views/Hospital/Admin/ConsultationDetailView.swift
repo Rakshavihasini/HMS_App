@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Charts
+import HMS_APP
 
 struct ConsultationDetailView: View {
     @Environment(\.colorScheme) var colorScheme
@@ -224,7 +225,7 @@ struct ConsultationDetailView: View {
     
     private func fetchAppointments() {
         Task {
-            await appointmentManager.fetchAppointments()
+            await appointmentManager.fetchAllAppointments()
             processAppointmentData()
         }
     }
@@ -239,29 +240,30 @@ struct ConsultationDetailView: View {
         print("DEBUG: Processing appointments for range: \(startDate) to \(endDate)")
         print("DEBUG: Total appointments available: \(appointmentManager.allAppointments.count)")
         
-        // First try to get appointments for the selected period
-        for appointment in appointmentManager.patientAppointments {
-            guard let appointmentDateTime = appointment.appointmentDateTime else {
-                print("DEBUG: Appointment has no datetime")
+        // Process each appointment
+        for appointment in appointmentManager.allAppointments {
+            // Check if appointment is within the selected date range
+            guard let appointmentDateTime = getAppointmentDateTime(appointment, calendar) else {
                 continue
             }
             
-            print("DEBUG: Processing appointment at \(appointmentDateTime)")
-            
-            // For any view (day/week/month), include both past and upcoming appointments
-            var hour = calendar.component(.hour, from: appointmentDateTime)
-            
-            // Normalize hours to working hours
-            if hour < 8 {
-                hour = 8
-            } else if hour > 20 {
-                hour = 20
+            if appointmentDateTime >= startDate && appointmentDateTime < endDate {
+                print("DEBUG: Processing appointment at \(appointmentDateTime)")
+                
+                // Normalize hours to working hours
+                var hour = calendar.component(.hour, from: appointmentDateTime)
+                
+                if hour < 8 {
+                    hour = 8
+                } else if hour > 20 {
+                    hour = 20
+                }
+                
+                if appointmentsByHour[hour] == nil {
+                    appointmentsByHour[hour] = []
+                }
+                appointmentsByHour[hour]?.append(appointment)
             }
-            
-            if appointmentsByHour[hour] == nil {
-                appointmentsByHour[hour] = []
-            }
-            appointmentsByHour[hour]?.append(appointment)
         }
         
         print("DEBUG: Appointments by hour: \(appointmentsByHour.mapValues { $0.count })")
@@ -289,6 +291,25 @@ struct ConsultationDetailView: View {
             self.consultationsData = newConsultationsData
             print("DEBUG: Updated consultations data with \(newConsultationsData.count) entries")
         }
+    }
+    
+    // Helper function to get appointment date time consistently
+    private func getAppointmentDateTime(_ appointment: AppointmentData, _ calendar: Calendar) -> Date? {
+        if let appointmentDateTime = appointment.appointmentDateTime {
+            return appointmentDateTime
+        }
+        
+        // Try to parse from date string if available
+        if let dateStr = appointment.date {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            if let dateObj = formatter.date(from: dateStr) {
+                // If we only have a date, default to 9 AM
+                return calendar.date(bySettingHour: 9, minute: 0, second: 0, of: dateObj)
+            }
+        }
+        
+        return nil
     }
     
     private func getDateRange() -> (Date, Date) {
@@ -360,15 +381,18 @@ struct ConsultationDetailView: View {
     }
     
     func getSpecialtyBreakdown() -> [(specialty: String, count: Int, percentage: Double)] {
+        // Group appointments by doctor name
         let specialties = Dictionary(grouping: appointmentManager.allAppointments) { $0.doctorName }
             .mapValues { $0.count }
         
         let total = specialties.values.reduce(0, +)
         
+        // Create an array of tuples with specialty, count, and percentage
         return specialties.map { (specialty, count) in
             let percentage = total > 0 ? (Double(count) / Double(total) * 100) : 0
             return (specialty: specialty, count: count, percentage: percentage)
-        }.sorted { $0.count > $1.count }
+        }
+        .sorted { $0.count > $1.count } // Sort by count descending
     }
 }
 
@@ -456,8 +480,4 @@ struct FilterView: View {
             }
         }
     }
-}
-
-enum TimeRange {
-    case day, week, month
 }

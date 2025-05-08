@@ -8,13 +8,25 @@
 import SwiftUI
 
 struct ConsultationCard: View {
-    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.colorScheme) var colorScheme
     let appointment: AppointmentData
     let onReschedule: () -> Void
     var onStartConsult: (() -> Void)? = nil
+    @State private var showReadOnlyConsultation = false
     
     private var theme: Theme {
         colorScheme == .dark ? Theme.dark : Theme.light
+    }
+    
+    // Check if appointment is for today
+    private var isToday: Bool {
+        guard let dateString = appointment.date else { return false }
+        
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        
+        let today = dateFormatter.string(from: Date())
+        return dateString == today
     }
     
     var body: some View {
@@ -85,16 +97,19 @@ struct ConsultationCard: View {
                         filled: true,
                         action: {
                             onStartConsult?()
-                        }
+                        },
+                        isDisabled: !isToday
                     )
+                }else if isWaiting == true{
+                    
                 }
-                else if isUpcoming == false{
+                else{
                     ActionButton(
                         icon: "doc.text.magnifyingglass",
                         title: "View Notes",
                         filled: true,
                         action: {
-                            onStartConsult?()
+                            showReadOnlyConsultation = true
                         }
                     )
                 }
@@ -105,12 +120,19 @@ struct ConsultationCard: View {
         .background(theme.card)
         .cornerRadius(16)
         .shadow(color: theme.shadow, radius: 1, x: 0, y: 1)
+        .sheet(isPresented: $showReadOnlyConsultation) {
+            ReadOnlyConsultationNotesView(appointmentId: appointment.id)
+        }
     }
     
     // Check if appointment is upcoming
     private var isUpcoming: Bool {
         let lowerStatus = appointment.status
         return lowerStatus?.rawValue == "UPCOMING" || lowerStatus?.rawValue == "CONFIRMED" || lowerStatus?.rawValue == "SCHEDULED" || lowerStatus?.rawValue == "RESCHEDULED"
+    }
+    private var isWaiting: Bool {
+        let lowerStatus = appointment.status
+        return lowerStatus?.rawValue == "WAITING"
     }
 }
 
@@ -168,6 +190,7 @@ struct ActionButton: View {
     let title: String
     var filled: Bool = false
     let action: () -> Void
+    var isDisabled: Bool = false
     
     var body: some View {
         Button(action: action) {
@@ -182,10 +205,12 @@ struct ActionButton: View {
             .foregroundColor(filled ? .white : .blue)
             .background(
                 filled ? 
-                Color.blue :
-                Color.blue.opacity(0.1)
+                (isDisabled ? Color.gray : Color.blue) :
+                (isDisabled ? Color.gray.opacity(0.1) : Color.blue.opacity(0.1))
             )
             .cornerRadius(8)
         }
+        .disabled(isDisabled)
+        .opacity(isDisabled ? 0.6 : 1.0)
     }
-} 
+}

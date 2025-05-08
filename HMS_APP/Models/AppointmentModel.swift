@@ -69,7 +69,7 @@ struct AppointmentData: Identifiable, Codable {
         case inProgress = "IN_PROGRESS"
         case completed = "COMPLETED"
         case cancelled = "CANCELLED"
-        case noShow = "NO_SHOW"
+        case noShow = "WAITING"
         case rescheduled = "RESCHEDULED"
     }
     
@@ -153,7 +153,7 @@ struct AppointmentData: Identifiable, Codable {
     /// Checks if the appointment is upcoming
     var isUpcoming: Bool {
         guard let dateTime = appointmentDateTime else { return false }
-        return dateTime > Date() && (status == .scheduled || status == .rescheduled)
+        return dateTime > Date() && (status == .scheduled || status == .rescheduled || status == .noShow)
     }
     
     /// Returns the end time of the appointment (if duration and start time are available)

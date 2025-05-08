@@ -36,7 +36,16 @@ struct DoctorTabView: View {
                             DoctorSlotManagerView()
                         }
                     case 2:
-                        PatientsListView()
+                         // Get the doctor ID from UserDefaults
+                        if let doctorId = UserDefaults.standard.string(forKey: "userId") {
+                            DoctorPatientsListView(doctorId: doctorId)
+                                .navigationBarBackButtonHidden(true)
+                                .navigationBarHidden(true)
+                        } else {
+                            Text("Doctor ID not found")
+                                .foregroundColor(.red)
+                                .padding()
+                        }
                     default:
                         DashboardContent(selectedTab: $selectedTab)
                             .environmentObject(doctorManager)

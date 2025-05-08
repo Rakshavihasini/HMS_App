@@ -2,8 +2,8 @@ import Foundation
 import FirebaseFirestore
 
 struct DoctorSchedules: Codable {
-    var fullDayLeaves: [String: Int]?
-    var leaveTimeSlots: [String: [String: Int]]?
+    var fullDayLeaves: [String]?
+    var leaveTimeSlots: [String]?
 }
 
 struct LicenseDetails: Codable {
@@ -20,7 +20,7 @@ struct DoctorProfile: Identifiable, Codable {
     let speciality: String
     let database: String?
     let age: Int?
-    let schedules: DoctorSchedules?
+    let schedule: DoctorSchedules?
     let appwriteUserId: String?
     let gender: String?
     let licenseDetails: LicenseDetails?
@@ -34,7 +34,7 @@ struct DoctorProfile: Identifiable, Codable {
         case speciality
         case database
         case age
-        case schedules
+        case schedule
         case appwriteUserId
         case gender
         case licenseDetails
@@ -71,12 +71,34 @@ class DoctorViewModel: ObservableObject {
                 let lastActive = data["lastActive"] as? String
                 let createdAt = data["createdAt"] as? Timestamp
                 
-                // Parse schedules
-                var schedules: DoctorSchedules? = nil
-                if let schedulesData = data["schedules"] as? [String: Any] {
-                    let fullDayLeaves = schedulesData["fullDayLeaves"] as? [String: Int]
-                    let leaveTimeSlots = schedulesData["leaveTimeSlots"] as? [String: [String: Int]]
-                    schedules = DoctorSchedules(fullDayLeaves: fullDayLeaves, leaveTimeSlots: leaveTimeSlots)
+                // Parse schedule
+                var schedule: DoctorSchedules? = nil
+                if let scheduleData = data["schedule"] as? [String: Any] {
+                    print("DEBUG: Found schedule data for doctor \(id)")
+                    
+                    // Parse fullDayLeaves
+                    var fullDayLeaves: [String]? = nil
+                    if let fullDayLeavesData = scheduleData["fullDayLeaves"] as? [String] {
+                        fullDayLeaves = fullDayLeavesData
+                        print("DEBUG: Full day leaves from array: \(fullDayLeavesData)")
+                    } else if let fullDayLeavesMap = scheduleData["fullDayLeaves"] as? [String: Any] {
+                        // If it's stored as a map/dictionary
+                        fullDayLeaves = Array(fullDayLeavesMap.keys)
+                        print("DEBUG: Full day leaves from map: \(fullDayLeavesMap.keys)")
+                    }
+                    
+                    // Parse leaveTimeSlots
+                    var leaveTimeSlots: [String]? = nil
+                    if let leaveTimeSlotsData = scheduleData["leaveTimeSlots"] as? [String] {
+                        leaveTimeSlots = leaveTimeSlotsData
+                        print("DEBUG: Leave time slots from array: \(leaveTimeSlotsData)")
+                    } else if let leaveTimeSlotsMap = scheduleData["leaveTimeSlots"] as? [String: Any] {
+                        // If it's stored as a map/dictionary
+                        leaveTimeSlots = Array(leaveTimeSlotsMap.keys)
+                        print("DEBUG: Leave time slots from map: \(leaveTimeSlotsMap.keys)")
+                    }
+                    
+                    schedule = DoctorSchedules(fullDayLeaves: fullDayLeaves, leaveTimeSlots: leaveTimeSlots)
                 }
                 
                 // Parse licenseDetails
@@ -102,7 +124,7 @@ class DoctorViewModel: ObservableObject {
                     speciality: speciality,
                     database: database,
                     age: age,
-                    schedules: schedules,
+                    schedule: schedule,
                     appwriteUserId: appwriteUserId,
                     gender: gender,
                     licenseDetails: licenseDetails,
@@ -141,12 +163,12 @@ class DoctorViewModel: ObservableObject {
                 let lastActive = data["lastActive"] as? String
                 let createdAt = data["createdAt"] as? Timestamp
                 
-                // Parse schedules
-                var schedules: DoctorSchedules? = nil
-                if let schedulesData = data["schedules"] as? [String: Any] {
-                    let fullDayLeaves = schedulesData["fullDayLeaves"] as? [String: Int]
-                    let leaveTimeSlots = schedulesData["leaveTimeSlots"] as? [String: [String: Int]]
-                    schedules = DoctorSchedules(fullDayLeaves: fullDayLeaves, leaveTimeSlots: leaveTimeSlots)
+                // Parse schedule
+                var schedule: DoctorSchedules? = nil
+                if let scheduleData = data["schedule"] as? [String: Any] {
+                    let fullDayLeaves = scheduleData["fullDayLeaves"] as? [String]
+                    let leaveTimeSlots = scheduleData["leaveTimeSlots"] as? [String]
+                    schedule = DoctorSchedules(fullDayLeaves: fullDayLeaves, leaveTimeSlots: leaveTimeSlots)
                 }
                 
                 // Parse licenseDetails
@@ -172,7 +194,7 @@ class DoctorViewModel: ObservableObject {
                     speciality: speciality,
                     database: database,
                     age: age,
-                    schedules: schedules,
+                    schedule: schedule,
                     appwriteUserId: appwriteUserId,
                     gender: gender,
                     licenseDetails: licenseDetails,

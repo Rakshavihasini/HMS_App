@@ -131,50 +131,37 @@ class AuthService: ObservableObject {
             throw error
         }
     }
-    
-    func deleteAccount() async throws {
+
+    func deleteUserAccount() async throws {
+        let userDefaults = UserDefaults.standard
+        let storedUserId = userDefaults.string(forKey: "userID")
         do {
-            // First make sure we're logged in properly
-            do {
-                let _ = try await appwrite.account.get()
-            } catch {
-                // If not logged in, we can't delete the account
-                print("Not logged in to Appwrite, can't delete account: \(error.localizedDescription)")
-                throw error
-            }
-            
-            // Delete all sessions first to ensure user is properly logged out
-            try await appwrite.account.deleteSessions()
-            
-            // Now try to delete all email identities
-            // This approach uses the available features in your SDK version
-            do {
-                // Get list of all identities
-                let identities = try await appwrite.account.listIdentities()
-                
-                // Delete each identity - should effectively remove the account
-                for identity in identities.identities {
-                    try await appwrite.account.deleteIdentity(identityId: identity.id)
+            let functions = Functions(appwrite.client)
+
+            let execution = try await functions.createExecution(
+                functionId: "680f0b0a001c9f181d9f",
+                body: """
+                {
+                    "userId": "\(storedUserId!)"
                 }
-                
-                print("Successfully removed all account identities")
-            } catch {
-                print("Failed to delete identities: \(error.localizedDescription)")
-            }
+                """,
+                async: false,
+                method: .pOST
+            )
+
+            print("Delete account execution: \(execution.status)")
             
-            // Clear local state
             self.name = ""
             self.email = ""
             self.password = ""
             self.userId = ""
             
-            // Clear UserDefaults
+            UserDefaults.standard.removeObject(forKey: "status")
             UserDefaults.standard.removeObject(forKey: "userId")
             UserDefaults.standard.removeObject(forKey: "tempUserName")
             UserDefaults.standard.removeObject(forKey: "tempUserEmail")
-            
         } catch {
-            print("Failed to delete Appwrite account: \(error.localizedDescription)")
+            print("Failed to delete account: \(error.localizedDescription)")
             throw error
         }
     }

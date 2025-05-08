@@ -24,14 +24,111 @@ struct PatientDetailView: View {
     @Environment(\.colorScheme) var colorScheme
     let patient: Patient
     
-    // Mock financial data
-    let totalBill: String = "2400"
-    let paid: String = "2400"
-    let pending: String = "2400"
+    // Payment data
+    @State private var totalBill: Int = 0
+    @State private var paid: Int = 0
+    @State private var pending: Int = 0
     
     // Use AppointmentManager for appointments
-    @StateObject private var appointmentManager = AppointmentManager()
+    @ObservedObject var appointmentManager: AppointmentManager
     @State private var showingCalendar = false
+    
+    // Alert states
+    @State private var showingConfirmationAlert = false
+    @State private var selectedAppointment: AppointmentData? = nil
+    
+    private func fetchPaymentData() {
+        let db = Firestore.firestore()
+        db.collection("hms4_transactions")
+            .whereField("patientId", isEqualTo: patient.id)
+            .getDocuments { snapshot, error in
+                if let error = error {
+                    print("Error fetching payments: \(error)")
+                    return
+                }
+                
+                guard let documents = snapshot?.documents else { return }
+                
+                var totalAmount = 0
+                var paidAmount = 0
+                var pendingAmount = 0
+                
+                for doc in documents {
+                    let data = doc.data()
+                    if let amount = data["amount"] as? Int,
+                       let paymentStatus = data["paymentStatus"] as? String {
+                        totalAmount += amount
+                        if paymentStatus == "completed" {
+                            paidAmount += amount
+                        } else if paymentStatus == "pending" {
+                            pendingAmount += amount
+                        }
+                    }
+                }
+                
+                DispatchQueue.main.async {
+                    self.totalBill = totalAmount
+                    self.paid = paidAmount
+                    self.pending = pendingAmount
+                }
+            }
+    }
+    
+    // Function to handle payment confirmation and status update
+    private func confirmPayment(for appointment: AppointmentData) {
+        let appointmentId = appointment.id
+        
+        // Find the transaction for this appointment
+        let db = Firestore.firestore()
+        db.collection("hms4_transactions")
+            .whereField("appointmentId", isEqualTo: appointmentId)
+            .getDocuments { snapshot, error in
+                if let error = error {
+                    print("Error fetching transaction: \(error)")
+                    return
+                }
+                
+                guard let documents = snapshot?.documents, let transactionDoc = documents.first else {
+                    print("Transaction not found")
+                    return
+                }
+                
+                let transactionId = transactionDoc.documentID
+                let data = transactionDoc.data()
+                let amount = data["amount"] as? Int ?? 0
+                
+                // Create a batch write to update both collections atomically
+                let batch = db.batch()
+                
+                // Update transaction status to completed
+                let transactionRef = db.collection("hms4_transactions").document(transactionId)
+                batch.updateData(["paymentStatus": "completed"], forDocument: transactionRef)
+                
+                // Update appointment status to scheduled
+                let appointmentRef = db.collection("hms4_appointments").document(appointmentId)
+                batch.updateData(["status": "SCHEDULED"], forDocument: appointmentRef)
+                batch.updateData(["paymentStatus": "completed"], forDocument: appointmentRef)
+                
+                // Commit the batch
+                batch.commit { error in
+                    if let error = error {
+                        print("Error updating documents: \(error)")
+                        return
+                    }
+                    
+                    // Update local payment data
+                    DispatchQueue.main.async {
+                        self.pending -= amount
+                        self.paid += amount
+                        
+                        // Refresh appointments
+                        Task {
+                            await self.appointmentManager.fetchAppointments(for: self.patient.id)
+                        }
+                    }
+                }
+            }
+    }
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -141,56 +238,57 @@ struct PatientDetailView: View {
                                     Text("Total Bill")
                                         .font(.system(size: 13))
                                         .foregroundColor(.white.opacity(0.8))
-                                }                              .frame(maxWidth: .infinity)
-                              .padding(.vertical, 12)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
                               
-                              Divider()
-                                  .background(Color.white.opacity(0.3))
-                                  .frame(height: 34)
+                                Divider()
+                                    .background(Color.white.opacity(0.3))
+                                    .frame(height: 34)
                               
-                              VStack(spacing: 6) {
-                                  Text("₹\(paid)")
-                                      .font(.system(size: 20, weight: .bold))
-                                      .foregroundColor(.white)
-                                  Text("Paid")
-                                      .font(.system(size: 13))
-                                      .foregroundColor(.white.opacity(0.8))
-                              }
-                              .frame(maxWidth: .infinity)
-                              .padding(.vertical, 12)
+                                VStack(spacing: 6) {
+                                    Text("₹\(paid)")
+                                        .font(.system(size: 20, weight: .bold))
+                                        .foregroundColor(.white)
+                                    Text("Paid")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(.white.opacity(0.8))
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
                               
-                              Divider()
-                                  .background(Color.white.opacity(0.3))
-                                  .frame(height: 34)
+                                Divider()
+                                    .background(Color.white.opacity(0.3))
+                                    .frame(height: 34)
                               
-                              VStack(spacing: 6) {
-                                  Text("₹\(pending)")
-                                      .font(.system(size: 20, weight: .bold))
-                                      .foregroundColor(.white)
-                                  Text("Pending")
-                                      .font(.system(size: 13))
-                                      .foregroundColor(.white.opacity(0.8))
-                              }
-                              .frame(maxWidth: .infinity)
-                              .padding(.vertical, 12)
-                          }
-                          .background(
-                              Color.white.opacity(0.05)
-                                  .blur(radius: 10)
-                          )
-                          .cornerRadius(14)
-                          .overlay(
-                              RoundedRectangle(cornerRadius: 14)
-                                  .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                          )
-                          .shadow(color: Color.black.opacity(0.1), radius: 6, x: 0, y: 4)
-                      }
-                      .padding(.horizontal)
-                      .padding(.top, 10)
-                      .padding(.bottom, 18)
-                  }
-              }
-              .frame(height: 200)
+                                VStack(spacing: 6) {
+                                    Text("₹\(pending)")
+                                        .font(.system(size: 20, weight: .bold))
+                                        .foregroundColor(.white)
+                                    Text("Pending")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(.white.opacity(0.8))
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                            }
+                            .background(
+                                Color.white.opacity(0.05)
+                                    .blur(radius: 10)
+                            )
+                            .cornerRadius(14)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                            )
+                            .shadow(color: Color.black.opacity(0.1), radius: 6, x: 0, y: 4)
+                        }
+                        .padding(.horizontal)
+                        .padding(.top, 10)
+                        .padding(.bottom, 18)
+                    }
+                }
+                .frame(height: 200)
                                           
                                         
                 // Appointments header
@@ -247,6 +345,13 @@ struct PatientDetailView: View {
                                 ForEach(appointmentManager.patientAppointments) { appointment in
                                     AppointmentCardView(appointment: appointment, colorScheme: colorScheme)
                                         .padding(.horizontal, 20)
+                                        .onTapGesture {
+                                            // Check if appointment status is "WAITING" (noShow)
+                                            if appointment.status == .noShow {
+                                                selectedAppointment = appointment
+                                                showingConfirmationAlert = true
+                                            }
+                                        }
                                 }
                             }
                         }
@@ -260,11 +365,19 @@ struct PatientDetailView: View {
                 Color.clear.frame(height: 0)
             }
             .onAppear {
-                // Trigger appointment fetch for the specific patient
-                Task {
-                    await appointmentManager.fetchAppointments(for: patient.id)
+                // Only fetch payment data, the appointment manager should be passed in with data
+                fetchPaymentData()
+            }
+        }
+        .alert("Confirm Payment", isPresented: $showingConfirmationAlert) {
+            Button("Confirm") {
+                if let appointment = selectedAppointment {
+                    confirmPayment(for: appointment)
                 }
             }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Do you want to confirm payment for this appointment? This will change the status from Waiting to Scheduled.")
         }
         .navigationBarHidden(true)
         .sheet(isPresented: $showingCalendar) {
@@ -556,3 +669,6 @@ struct StatusBadge1: View {
         }
     }
 }
+
+
+

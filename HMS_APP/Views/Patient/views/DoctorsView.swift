@@ -207,8 +207,8 @@ struct DoctorsView: View {
                 }
             }
         }
-        .navigationBarHidden(true)
-        .navigationBarBackButtonHidden(true)
+//        .navigationBarHidden(true)
+//        .navigationBarBackButtonHidden(true)
         .background(colorScheme == .dark ? Theme.dark.background : Theme.light.background)
         .onAppear {
             doctorService.fetchDoctors()
@@ -237,7 +237,7 @@ struct DoctorsView: View {
             speciality: doctor.speciality,
             database: nil,
             age: age,
-            schedules: nil,
+            schedule: nil,
             appwriteUserId: nil,
             gender: doctor.gender,
             licenseDetails: licenseDetails,
@@ -443,12 +443,19 @@ struct DoctorDetailView: View {
             }
             .hidden()
         )
-        .navigationBarBackButtonHidden(true)
-        .sheet(isPresented: $showingBookAppointment) {
-            if let patient = currentPatient {
-                BookAppointmentView(doctor: doctor, patient: patient)
+        .background(
+            NavigationLink(
+                destination: Group {
+                    if let patient = currentPatient {
+                        BookAppointmentView(doctor: doctor, patient: patient)
+                    }
+                },
+                isActive: $showingBookAppointment
+            ) {
+                EmptyView()
             }
-        }
+        )
+        .navigationBarBackButtonHidden(true)
         .alert("Error", isPresented: .constant(errorMessage != nil)) {
             Button("OK") {
                 errorMessage = nil

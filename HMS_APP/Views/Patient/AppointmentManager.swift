@@ -96,7 +96,7 @@ class AppointmentManager: ObservableObject {
                         appointmentStatus = .completed
                     case "CANCELLED":
                         appointmentStatus = .cancelled
-                    case "NO_SHOW":
+                    case "WAITING":
                         appointmentStatus = .noShow
                     case "RESCHEDULED":
                         appointmentStatus = .rescheduled
