@@ -75,35 +75,20 @@ struct ConsultationDetailView: View {
                 // Summary cards
                 VStack(spacing: 16) {
                     HStack {
-//                        Text("Consultation Analytics")
-//                            .font(.title2)
-//                            .fontWeight(.bold)
-//                            .foregroundColor(currentTheme.text)
-                        
                         Spacer()
-                        
-                        Button(action: {
-                            isGeneratingPDF = true
-                            generatePDFReport()
-                        }) {
-                            HStack {
+                            .navigationBarItems(trailing: Button(action: {
+                                isGeneratingPDF = true
+                                generatePDFReport()
+                            }) {
                                 Image(systemName: "square.and.arrow.up")
-                                Text("Share")
                             }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(currentTheme.primary)
-                            .foregroundColor(.white)
-                            .cornerRadius(8)
-                        }
-                        .disabled(isGeneratingPDF)
-                        .overlay(
-                            isGeneratingPDF ?
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: currentTheme.primary))
-                                .padding(8)
-                            : nil
-                        )
+                            .disabled(isGeneratingPDF)
+                            .overlay(
+                                isGeneratingPDF ?
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: currentTheme.primary))
+                                    .padding(8)
+                                : nil))
                     }
                     
                     
@@ -265,7 +250,7 @@ struct ConsultationDetailView: View {
             .padding(.vertical)
         }
         .navigationTitle("Consultation Analytics")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .background(currentTheme.background.ignoresSafeArea())
         .sheet(isPresented: $showingFilterSheet) {
             FilterView()

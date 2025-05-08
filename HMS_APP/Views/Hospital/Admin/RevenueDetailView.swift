@@ -137,39 +137,24 @@ struct RevenueDetailView: View {
     var body: some View {
          ScrollView {
              VStack(alignment: .leading, spacing: 16) {
-                 // Header with share button
                  HStack {
-//                     Text("Revenue Analytics")
-//                         .font(.title2)
-//                         .fontWeight(.bold)
-//                         .foregroundColor(currentTheme.text)
-                     
                      Spacer()
-                     
-                     Button(action: {
-                         isGeneratingPDF = true
-                         generatePDFReport()
-                     }) {
-                         HStack {
-                             Image(systemName: "square.and.arrow.up")
-                             Text("Share")
-                         }
-                         .padding(.horizontal, 12)
-                         .padding(.vertical, 8)
-                         .background(currentTheme.primary)
-                         .foregroundColor(.white)
-                         .cornerRadius(8)
-                     }
-                     .disabled(isGeneratingPDF)
-                     .overlay(
-                         isGeneratingPDF ?
-                         ProgressView()
-                             .progressViewStyle(CircularProgressViewStyle(tint: currentTheme.tertiary))
-                             .padding(8)
-                         : nil
-                     )
                  }
                  .padding(.horizontal)
+                 .navigationBarItems(trailing: Button(action: {
+                                              isGeneratingPDF = true
+                                              generatePDFReport()
+                                          }) {
+                                                  Image(systemName: "square.and.arrow.up")
+                                          }
+                                          .disabled(isGeneratingPDF)
+                                          .overlay(
+                                              isGeneratingPDF ?
+                                              ProgressView()
+                                                  .progressViewStyle(CircularProgressViewStyle(tint: currentTheme.tertiary))
+                                                  .padding(8)
+                                              : nil
+                                          ))
                  
                  // Time range selector
                 TimeRangeSelector(selectedRange: $selectedTimeRange)
@@ -229,7 +214,7 @@ struct RevenueDetailView: View {
              .padding(.vertical)
         }
         .navigationTitle("Revenue Analytics")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .background(currentTheme.background.ignoresSafeArea())
         .onAppear {
             fetchTransactionData()

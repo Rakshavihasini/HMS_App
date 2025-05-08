@@ -168,18 +168,7 @@ struct PatientDetailView: View {
                             Text("Patient Details")
                                 .font(.system(size: 18, weight: .semibold))
                                 .foregroundColor(.white)
-                            
                             Spacer()
-                            
-                            Button(action: {
-                                // Action for menu
-                            }) {
-                                Image(systemName: "ellipsis")
-                                    .foregroundColor(.white)
-                                    .imageScale(.large)
-                                    .padding(8)
-                                    .clipShape(Circle())
-                            }
                         }
                         .padding(.horizontal)
                         
