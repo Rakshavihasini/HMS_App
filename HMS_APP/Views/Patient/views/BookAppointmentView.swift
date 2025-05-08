@@ -547,57 +547,155 @@ struct BookAppointmentView: View {
         }
         
         // Check for individual time slots blocked
-        if let scheduleData = doctor.schedule,
-           let leaveTimeSlots = scheduleData.leaveTimeSlots {
-            print("DEBUG: Blocked time slots available: \(leaveTimeSlots)")
+        if let doctorId = doctor.id {
+            // Fetch the doctor's schedule directly from Firebase to ensure we have the latest data
+            let docRef = db.collection("hms4_doctors").document(doctorId)
             
-            // Get the time slot strings for the selected date
-            let blockedSlotsForDate = getBlockedSlotsForDate(selectedDate, leaveTimeSlots)
-            print("DEBUG: Blocked slots for selected date: \(blockedSlotsForDate)")
-            
-            // Remove blocked time slots from available slots
-            availableTimeSlots.removeAll { timeSlot in
-                blockedSlotsForDate.contains(timeSlot)
-            }
-        }
-        
-        // Only filter out past time slots if the selected date is today
-        if calendar.isDateInToday(selectedDate) {
-            print("DEBUG: Selected date is today, filtering past time slots")
-            let currentTime = Date()
-            let timeFormatter = DateFormatter()
-            timeFormatter.dateFormat = "h:mm a"
-            timeFormatter.timeZone = TimeZone.current
-            
-            // Create a date for comparison that combines today's date with each time slot
-            let todayFormatter = DateFormatter()
-            todayFormatter.dateFormat = "yyyy-MM-dd h:mm a"
-            todayFormatter.timeZone = TimeZone.current
-            let todayString = dateFormatter.string(from: currentTime)
-            
-            print("DEBUG: Current time: \(timeFormatter.string(from: currentTime))")
-            
-            availableTimeSlots = availableTimeSlots.filter { timeSlot in
-                // Combine today's date with the time slot
-                let slotDateString = "\(todayString) \(timeSlot)"
-                if let slotDate = todayFormatter.date(from: slotDateString) {
-                    // Add 30 minutes buffer to current time
-                    let bufferTime = calendar.date(byAdding: .minute, value: 30, to: currentTime) ?? currentTime
-                    print("DEBUG: Comparing slot \(timeSlot) with buffer time \(timeFormatter.string(from: bufferTime))")
-                    return slotDate > bufferTime
+            Task {
+                do {
+                    let document = try await docRef.getDocument()
+                    
+                    if document.exists, let data = document.data(),
+                       let scheduleData = data["schedule"] as? [String: Any] {
+                        
+                        var blockedTimeSlots = Set<String>()
+                        
+                        // Handle leaveTimeSlots as array of strings
+                        if let leaveTimeSlots = scheduleData["leaveTimeSlots"] as? [String] {
+                            print("DEBUG: Found leaveTimeSlots as strings: \(leaveTimeSlots)")
+                            let stringBlockedSlots = getBlockedSlotsForDate(selectedDate, leaveTimeSlots)
+                            blockedTimeSlots.formUnion(stringBlockedSlots)
+                        }
+                        
+                        // Handle leaveTimeSlots as array of timestamps
+                        if let leaveTimestamps = scheduleData["leaveTimeSlots"] as? [Any] {
+                            print("DEBUG: Processing leaveTimeSlots as mixed types: \(leaveTimestamps)")
+                            
+                            for item in leaveTimestamps {
+                                if let timestamp = item as? Timestamp {
+                                    let leaveDate = timestamp.dateValue()
+                                    
+                                    // Check if this timestamp is for the selected date
+                                    if calendar.isDate(leaveDate, inSameDayAs: selectedDate) {
+                                        // Format the time to match our time slot format
+                                        let timeFormatter = DateFormatter()
+                                        timeFormatter.dateFormat = "h:mm a"
+                                        let timeString = timeFormatter.string(from: leaveDate)
+                                        print("DEBUG: Found timestamp leave slot: \(timeString)")
+                                        blockedTimeSlots.insert(timeString)
+                                    }
+                                } else if let leaveString = item as? String {
+                                    // Handle if it's a string in the array of Any
+                                    if let parsedDate = parseDateTime(leaveString) {
+                                        if calendar.isDate(parsedDate, inSameDayAs: selectedDate) {
+                                            let timeFormatter = DateFormatter()
+                                            timeFormatter.dateFormat = "h:mm a"
+                                            let timeString = timeFormatter.string(from: parsedDate)
+                                            print("DEBUG: Found string leave slot: \(timeString)")
+                                            blockedTimeSlots.insert(timeString)
+                                        }
+                                    } else if defaultTimeSlots.contains(leaveString) {
+                                        // It's a direct time string like "9:00 AM"
+                                        print("DEBUG: Found direct time slot string: \(leaveString)")
+                                        blockedTimeSlots.insert(leaveString)
+                                    }
+                                }
+                            }
+                        }
+                        
+                        print("DEBUG: All blocked slots for selected date: \(blockedTimeSlots)")
+                        
+                        await MainActor.run {
+                            // Remove blocked time slots from available slots
+                            availableTimeSlots.removeAll { timeSlot in
+                                blockedTimeSlots.contains(timeSlot)
+                            }
+                            
+                            print("DEBUG: Available slots after removing blocked slots: \(availableTimeSlots)")
+                        }
+                    }
+                } catch {
+                    print("DEBUG: Error fetching doctor schedule: \(error.localizedDescription)")
                 }
-                return false
+                
+                // Continue with the rest of the slot fetching process
+                await MainActor.run {
+                    // Only filter out past time slots if the selected date is today
+                    if calendar.isDateInToday(selectedDate) {
+                        print("DEBUG: Selected date is today, filtering past time slots")
+                        let currentTime = Date()
+                        let timeFormatter = DateFormatter()
+                        timeFormatter.dateFormat = "h:mm a"
+                        timeFormatter.timeZone = TimeZone.current
+                        
+                        // Create a date for comparison that combines today's date with each time slot
+                        let todayFormatter = DateFormatter()
+                        todayFormatter.dateFormat = "yyyy-MM-dd h:mm a"
+                        todayFormatter.timeZone = TimeZone.current
+                        let todayString = dateFormatter.string(from: currentTime)
+                        
+                        print("DEBUG: Current time: \(timeFormatter.string(from: currentTime))")
+                        
+                        availableTimeSlots = availableTimeSlots.filter { timeSlot in
+                            // Combine today's date with the time slot
+                            let slotDateString = "\(todayString) \(timeSlot)"
+                            if let slotDate = todayFormatter.date(from: slotDateString) {
+                                // Add 30 minutes buffer to current time
+                                let bufferTime = calendar.date(byAdding: .minute, value: 30, to: currentTime) ?? currentTime
+                                print("DEBUG: Comparing slot \(timeSlot) with buffer time \(timeFormatter.string(from: bufferTime))")
+                                return slotDate > bufferTime
+                            }
+                            return false
+                        }
+                        
+                        print("DEBUG: Available slots after time filtering: \(availableTimeSlots)")
+                    }
+                    
+                    // Check for existing appointments
+                    setupAppointmentListener(doctorId, dateString)
+                }
+            }
+        } else {
+            // If we can't get doctorId, just continue with time filtering
+            // Only filter out past time slots if the selected date is today
+            if calendar.isDateInToday(selectedDate) {
+                // (existing time filtering code remains the same)
+                print("DEBUG: Selected date is today, filtering past time slots")
+                let currentTime = Date()
+                let timeFormatter = DateFormatter()
+                timeFormatter.dateFormat = "h:mm a"
+                timeFormatter.timeZone = TimeZone.current
+                
+                // Create a date for comparison that combines today's date with each time slot
+                let todayFormatter = DateFormatter()
+                todayFormatter.dateFormat = "yyyy-MM-dd h:mm a"
+                todayFormatter.timeZone = TimeZone.current
+                let todayString = dateFormatter.string(from: currentTime)
+                
+                print("DEBUG: Current time: \(timeFormatter.string(from: currentTime))")
+                
+                availableTimeSlots = availableTimeSlots.filter { timeSlot in
+                    // Combine today's date with the time slot
+                    let slotDateString = "\(todayString) \(timeSlot)"
+                    if let slotDate = todayFormatter.date(from: slotDateString) {
+                        // Add 30 minutes buffer to current time
+                        let bufferTime = calendar.date(byAdding: .minute, value: 30, to: currentTime) ?? currentTime
+                        print("DEBUG: Comparing slot \(timeSlot) with buffer time \(timeFormatter.string(from: bufferTime))")
+                        return slotDate > bufferTime
+                    }
+                    return false
+                }
+                
+                print("DEBUG: Available slots after time filtering: \(availableTimeSlots)")
             }
             
-            print("DEBUG: Available slots after time filtering: \(availableTimeSlots)")
-        }
-        
-        // Check for existing appointments and set up real-time listener
-        guard let doctorId = doctor.id else {
+            // If there's no doctorId, we can't check appointments
             isLoading = false
-            return
         }
-        
+    }
+    
+    // Helper method to set up the appointment listener
+    private func setupAppointmentListener(_ doctorId: String, _ dateString: String) {
         // Set up a real-time listener for appointments on this date and doctor
         appointmentListener = db.collection("\(dbName)_appointments")
             .whereField("docId", isEqualTo: doctorId)
