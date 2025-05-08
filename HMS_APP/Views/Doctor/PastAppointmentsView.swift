@@ -240,7 +240,7 @@ struct CalendarDayView: View {
             
             Text("\(day)")
                 .font(.system(size: 16, weight: isSelected ? .bold : .regular))
-                .foregroundColor(isSelected ? .white : isFuture ? theme.secondary.opacity(0.5) : theme.text)
+                .foregroundColor(isSelected ? .white : isFuture ? theme.primary.opacity(0.5) : theme.text)
             
             // Indicator for days with appointments
             if hasAppointment && !isSelected {

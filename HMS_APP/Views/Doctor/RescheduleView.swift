@@ -298,13 +298,46 @@ struct RescheduleView: View {
         // Check if the selected date matches the appointment date
         let isCurrentAppointmentDate = appointment.date == dateString
         
+        // Check if the selected date is today
+        let isToday = Calendar.current.isDateInToday(date)
+        
+        // Get current time plus 30 minutes
+        let currentTimePlus30Min = Calendar.current.date(byAdding: .minute, value: 30, to: Date()) ?? Date()
+        
         // Combine both time slots
         let allTimeSlots = morningTimeSlots + afternoonTimeSlots
         
-        return allTimeSlots.map { time in
+        return allTimeSlots.map { timeString in
             // Check if this is the current appointment time
-            let isCurrentTime = isCurrentAppointmentDate && time == appointment.time
-            return TimeSlot(time: time, isAvailable: !isCurrentTime)
+            let isCurrentTime = isCurrentAppointmentDate && timeString == appointment.time
+            
+            // For today, check if the time has already passed or is within 30 minutes
+            var isAvailable = !isCurrentTime
+            
+            if isToday {
+                // Convert the time string to a Date for comparison
+                let timeFormatter = DateFormatter()
+                timeFormatter.dateFormat = "h:mm a"
+                
+                if let timeDate = timeFormatter.date(from: timeString) {
+                    // Create a date with today's date and the slot's time
+                    let calendar = Calendar.current
+                    let timeComponents = calendar.dateComponents([.hour, .minute], from: timeDate)
+                    
+                    // Create a date for today with the time from the slot
+                    var todayWithSlotTime = calendar.date(bySettingHour: timeComponents.hour ?? 0, 
+                                                         minute: timeComponents.minute ?? 0, 
+                                                         second: 0, 
+                                                         of: Date()) ?? Date()
+                    
+                    // If the slot time is earlier than current time + 30 minutes, mark as unavailable
+                    if todayWithSlotTime < currentTimePlus30Min {
+                        isAvailable = false
+                    }
+                }
+            }
+            
+            return TimeSlot(time: timeString, isAvailable: isAvailable)
         }
     }
     
