@@ -6,17 +6,18 @@
 //
 
 import SwiftUI
+import FirebaseFirestore
 
 struct RevenueCard: View {
     @Environment(\.colorScheme) var colorScheme
+    @State private var currentRevenue = 0
+    @State private var targetRevenue = 15000 // Default target
+    @State private var percentComplete = 0.0
+    @State private var isLoading = false
     
     var currentTheme: Theme {
         colorScheme == .dark ? Theme.dark : Theme.light
     }
-    
-    let currentRevenue = 12500
-    let targetRevenue = 15000
-    let percentComplete = 83.3
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -26,9 +27,14 @@ struct RevenueCard: View {
                         .font(.subheadline)
                         .foregroundColor(currentTheme.text.opacity(0.6))
                     
-                    Text("₹\(currentRevenue.formattedWithSeparator())")
-                        .font(.title2.bold())
-                        .foregroundColor(currentTheme.text)
+                    if isLoading {
+                        ProgressView()
+                            .frame(height: 30)
+                    } else {
+                        Text("₹\(currentRevenue.formattedWithSeparator())")
+                            .font(.title2.bold())
+                            .foregroundColor(currentTheme.text)
+                    }
                 }
                 
                 Spacer()
@@ -75,6 +81,81 @@ struct RevenueCard: View {
                 .stroke(currentTheme.border, lineWidth: 1)
         )
         .shadow(color: currentTheme.shadow, radius: 10, x: 0, y: 2)
+        .onAppear {
+            fetchRevenueData()
+        }
+    }
+    
+    private func fetchRevenueData() {
+        isLoading = true
+        
+        // Get the current month's date range
+        let calendar = Calendar.current
+        let now = Date()
+        
+        // Get the start of the current month
+        let components = calendar.dateComponents([.year, .month], from: now)
+        let startOfMonth = calendar.date(from: components)!
+        
+        // Get the end of the current month
+        var nextMonthComponents = DateComponents()
+        nextMonthComponents.month = 1
+        let endOfMonth = calendar.date(byAdding: nextMonthComponents, to: startOfMonth)!
+        
+        // Firestore reference
+        let db = Firestore.firestore()
+        
+        Task {
+            do {
+                // Query all completed transactions in the current month
+                let snapshot = try await db.collection("hms4_transactions")
+                    .whereField("paymentStatus", isEqualTo: "completed")
+                    .getDocuments()
+                
+                var totalRevenue = 0
+                var transactionDates: [Date] = []
+                
+                for document in snapshot.documents {
+                    let data = document.data()
+                    
+                    // Extract transaction date
+                    var transactionDate: Date?
+                    if let dateString = data["appointmentDate"] as? String {
+                        let dateFormatter = DateFormatter()
+                        dateFormatter.dateFormat = "yyyy-MM-dd"
+                        transactionDate = dateFormatter.date(from: dateString)
+                    } else if let timestamp = data["transactionDate"] as? Timestamp {
+                        transactionDate = timestamp.dateValue()
+                    }
+                    
+                    // Include only transactions in the current month
+                    if let date = transactionDate,
+                       date >= startOfMonth && date < endOfMonth {
+                        // Add to total revenue
+                        if let amount = data["amount"] as? Int {
+                            totalRevenue += amount
+                        }
+                        
+                        transactionDates.append(date)
+                    }
+                }
+                
+                // Update the UI on the main thread
+                await MainActor.run {
+                    self.currentRevenue = totalRevenue
+                    self.percentComplete = min(100.0, (Double(totalRevenue) / Double(targetRevenue)) * 100)
+                    self.isLoading = false
+                }
+            } catch {
+                print("Error fetching revenue data: \(error)")
+                await MainActor.run {
+                    self.isLoading = false
+                    // Set default values in case of error
+                    self.currentRevenue = 0
+                    self.percentComplete = 0
+                }
+            }
+        }
     }
 }
 
