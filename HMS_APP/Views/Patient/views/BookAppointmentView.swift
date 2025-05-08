@@ -19,6 +19,7 @@ struct BookAppointmentView: View {
     @State private var showAllAfternoonSlots = false
     @State private var shouldNavigateBack = false
     @State private var showingPaymentSheet = false
+    @State private var appointmentListener: ListenerRegistration?
     
     // Add consultationFee calculation based on doctor's speciality
     private var consultationFee: Int {
@@ -414,6 +415,10 @@ struct BookAppointmentView: View {
             prefetchFullDayLeavesData()
                 fetchAvailableTimeSlots()
         }
+        .onDisappear {
+            // Clean up listener to prevent memory leaks
+            appointmentListener?.remove()
+        }
     }
     
     private func prefetchFullDayLeavesData() {
@@ -480,8 +485,39 @@ struct BookAppointmentView: View {
         return formatter.string(from: selectedDate)
     }
     
+    private func removeBookedSlot(_ bookedTime: String) {
+        print("DEBUG: Removing booked slot: \(bookedTime)")
+        availableTimeSlots.removeAll { timeSlot in
+            // Direct exact match
+            if timeSlot == bookedTime {
+                return true
+            }
+            
+            // Try normalized time comparison (handle format differences)
+            let timeFormatter = DateFormatter()
+            timeFormatter.dateFormat = "h:mm a"
+            
+            if let slotTime = timeFormatter.date(from: timeSlot),
+               let bookTime = timeFormatter.date(from: bookedTime) {
+                let calendar = Calendar.current
+                
+                // Compare hour and minute components
+                let slotComponents = calendar.dateComponents([.hour, .minute], from: slotTime)
+                let bookComponents = calendar.dateComponents([.hour, .minute], from: bookTime)
+                
+                return slotComponents.hour == bookComponents.hour && 
+                       slotComponents.minute == bookComponents.minute
+            }
+            
+            return false
+        }
+    }
+    
     private func fetchAvailableTimeSlots() {
         isLoading = true
+        
+        // Clean up any existing listener
+        appointmentListener?.remove()
         
         // Format the selected date to match Firebase date format (YYYY-MM-DD)
         let dateFormatter = DateFormatter()
@@ -557,9 +593,9 @@ struct BookAppointmentView: View {
                     } else if leaveDate == dateString {
                         // Also try to match the string format directly
                         print("DEBUG: Selected date is a full day leave (string match)")
-            availableTimeSlots = []
-            isLoading = false
-            return
+                        availableTimeSlots = []
+                        isLoading = false
+                        return
                     }
                 }
             }
@@ -581,190 +617,62 @@ struct BookAppointmentView: View {
             }
         }
         
-        // Fetch the raw schedule data from Firebase to see what's actually stored
-        if let doctorId = doctor.id {
-            Task {
-                do {
-                    print("DEBUG: Fetching raw schedule data for doctor \(doctorId)")
-                    let db = Firestore.firestore()
-                    let docRef = db.collection("hms4_doctors").document(doctorId)
-                    let document = try await docRef.getDocument()
-                    
-                    if document.exists, let data = document.data() {
-                        if let scheduleData = data["schedule"] as? [String: Any] {
-                            print("DEBUG: Raw schedule data from Firebase: \(scheduleData)")
-                            
-                            // Print detailed info about fullDayLeaves
-                            if let fullDayLeaves = scheduleData["fullDayLeaves"] {
-                                print("DEBUG: fullDayLeaves type: \(type(of: fullDayLeaves))")
-                                print("DEBUG: fullDayLeaves value: \(fullDayLeaves)")
-                                
-                                if let fullDayLeavesArray = fullDayLeaves as? [Any] {
-                                    for (index, leave) in fullDayLeavesArray.enumerated() {
-                                        print("DEBUG: fullDayLeaves[\(index)] type: \(type(of: leave))")
-                                        print("DEBUG: fullDayLeaves[\(index)] value: \(leave)")
-                                    }
-                                }
-                                
-                                if let fullDayLeavesDict = fullDayLeaves as? [String: Any] {
-                                    for (key, value) in fullDayLeavesDict {
-                                        print("DEBUG: fullDayLeaves[\"\(key)\"] type: \(type(of: value))")
-                                        print("DEBUG: fullDayLeaves[\"\(key)\"] value: \(value)")
-                                    }
-                                }
-                            } else {
-                                print("DEBUG: fullDayLeaves is nil")
-                            }
-                            
-                            // Print detailed info about leaveTimeSlots
-                            if let leaveTimeSlots = scheduleData["leaveTimeSlots"] {
-                                print("DEBUG: leaveTimeSlots type: \(type(of: leaveTimeSlots))")
-                                print("DEBUG: leaveTimeSlots value: \(leaveTimeSlots)")
-                                
-                                if let leaveTimeSlotsArray = leaveTimeSlots as? [Any] {
-                                    for (index, slot) in leaveTimeSlotsArray.enumerated() {
-                                        print("DEBUG: leaveTimeSlots[\(index)] type: \(type(of: slot))")
-                                        print("DEBUG: leaveTimeSlots[\(index)] value: \(slot)")
-                                    }
-                                }
-                                
-                                if let leaveTimeSlotsDict = leaveTimeSlots as? [String: Any] {
-                                    for (key, value) in leaveTimeSlotsDict {
-                                        print("DEBUG: leaveTimeSlots[\"\(key)\"] type: \(type(of: value))")
-                                        print("DEBUG: leaveTimeSlots[\"\(key)\"] value: \(value)")
-                                    }
-                                }
-                            } else {
-                                print("DEBUG: leaveTimeSlots is nil")
-                            }
-                            
-                            // Immediately use the raw data to update our view
-                            // This is a fallback in case our DoctorProfile model doesn't parse the data correctly
-                            await MainActor.run {
-                                // Handle fullDayLeaves
-                                if let fullDayLeaves = scheduleData["fullDayLeaves"] as? [Any] {
-                                    // Check for Timestamps which is what SlotManagerView uses
-                                    for leave in fullDayLeaves {
-                                        if let timestamp = leave as? Timestamp {
-                                            let leaveDate = timestamp.dateValue()
-                                            if calendar.isDate(leaveDate, inSameDayAs: selectedDate) {
-                                                print("DEBUG: Found matching full day leave timestamp for selected date")
-                                                availableTimeSlots = []
-                                                isLoading = false
-                                                return
-                                            }
-                                        }
-                                    }
-                                }
-                                
-                                // Handle leaveTimeSlots
-                                if let leaveTimeSlots = scheduleData["leaveTimeSlots"] as? [Any] {
-                                    for slot in leaveTimeSlots {
-                                        if let timestamp = slot as? Timestamp {
-                                            let slotDate = timestamp.dateValue()
-                                            if calendar.isDate(slotDate, inSameDayAs: selectedDate) {
-                                                let timeFormatter = DateFormatter()
-                                                timeFormatter.dateFormat = "h:mm a"
-                                                let timeString = timeFormatter.string(from: slotDate)
-                                                print("DEBUG: Found blocked time slot: \(timeString)")
-                                                availableTimeSlots.removeAll { $0 == timeString }
-                                            }
-                                        }
-                                    }
-                                    
-                                    // Now also handle the timestamps we see in the debug logs by converting them directly
-                                    for (index, slot) in leaveTimeSlots.enumerated() {
-                                        if let timestamp = slot as? Timestamp {
-                                            let slotDate = timestamp.dateValue()
-                                            if calendar.isDate(slotDate, inSameDayAs: selectedDate) {
-                                                // Format the time to match our available time slots format
-                                                let timeFormatter = DateFormatter()
-                                                timeFormatter.dateFormat = "h:mm a"
-                                                let timeString = timeFormatter.string(from: slotDate)
-                                                print("DEBUG: Processing timestamp[\(index)]: \(timestamp.seconds) -> \(timeString)")
-                                                
-                                                // Remove this slot from available slots
-                                                availableTimeSlots.removeAll { slot in
-                                                    // Try exact match first
-                                                    if slot == timeString {
-                                                        print("DEBUG: Removed blocked slot (exact match): \(slot)")
-                                                        return true
-                                                    }
-                                                    
-                                                    // Try case-insensitive match
-                                                    if slot.lowercased() == timeString.lowercased() {
-                                                        print("DEBUG: Removed blocked slot (case-insensitive): \(slot)")
-                                                        return true
-                                                    }
-                                                    
-                                                    // Try alternative format (with/without leading zero)
-                                                    let alternativeFormatter = DateFormatter()
-                                                    alternativeFormatter.dateFormat = "h:mm a"
-                                                    if let time = timeFormatter.date(from: timeString) {
-                                                        let altTimeString = alternativeFormatter.string(from: time)
-                                                        if slot == altTimeString {
-                                                            print("DEBUG: Removed blocked slot (alternative format): \(slot)")
-                                                            return true
-                                                        }
-                                                    }
-                                                    
-                                                    return false
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                isLoading = false
-                            }
-                        } else {
-                            print("DEBUG: No schedule data found in the doctor document")
-                        }
-                    } else {
-                        print("DEBUG: Doctor document not found")
-                    }
-                } catch {
-                    print("DEBUG: Error fetching doctor document: \(error)")
-                }
-            }
+        // Check for existing appointments and set up real-time listener
+        guard let doctorId = doctor.id else {
+            isLoading = false
+            return
         }
         
-        // Check for existing appointments
-        Task {
-            do {
-                print("DEBUG: Querying Firebase for doctorId: \(doctor.id ?? "nil") and date: \(dateString)")
+        // Set up a real-time listener for appointments on this date and doctor
+        appointmentListener = db.collection("\(dbName)_appointments")
+            .whereField("docId", isEqualTo: doctorId)
+            .whereField("date", isEqualTo: dateString)
+            .addSnapshotListener { snapshot, error in
+                if let error = error {
+                    print("DEBUG: Error listening for appointments: \(error.localizedDescription)")
+                    return
+                }
                 
-                let snapshot = try await db.collection("\(dbName)_appointments")
-                    .whereField("doctorId", isEqualTo: doctor.id ?? "")
-                    .whereField("date", isEqualTo: dateString)
-                    .getDocuments()
+                guard let documents = snapshot?.documents else {
+                    print("DEBUG: No appointment documents found")
+                    return
+                }
                 
-                print("DEBUG: Found \(snapshot.documents.count) existing appointments")
+                print("DEBUG: Found \(documents.count) appointments in real-time")
                 
-                for document in snapshot.documents {
-                    if let bookedTime = document.data()["time"] as? String {
-                        print("DEBUG: Found booked time slot: \(bookedTime)")
-                        availableTimeSlots.removeAll { $0.contains(bookedTime) }
+                Task { @MainActor in
+                    for document in documents {
+                        let data = document.data()
+                        if let bookedTime = data["time"] as? String {
+                            self.removeBookedSlot(bookedTime)
+                        }
+                    }
+                    
+                    // If selected time is now unavailable, clear it
+                    if !self.availableTimeSlots.contains(self.selectedTime) {
+                        self.selectedTime = ""
+                    }
+                    
+                    self.isLoading = false
+                }
+                
+                // Also track changes for newly added appointments
+                snapshot?.documentChanges.forEach { diff in
+                    if diff.type == .added {
+                        print("DEBUG: New appointment added")
+                        if let bookedTime = diff.document.data()["time"] as? String {
+                            Task { @MainActor in
+                                self.removeBookedSlot(bookedTime)
+                                
+                                // If the user's selected time was just booked, clear it
+                                if self.selectedTime == bookedTime {
+                                    self.selectedTime = ""
+                                }
+                            }
+                        }
                     }
                 }
-                
-                print("DEBUG: Final available slots: \(availableTimeSlots)")
-                
-                if !availableTimeSlots.contains(selectedTime) {
-                    selectedTime = ""
-                }
-                
-                await MainActor.run {
-                    isLoading = false
-                }
-            } catch {
-                print("DEBUG: Error fetching appointments: \(error.localizedDescription)")
-                await MainActor.run {
-                    isLoading = false
-                    errorMessage = "Failed to fetch time slots: \(error.localizedDescription)"
-                    showingError = true
-                }
             }
-        }
     }
     
     // Helper function to determine if a date is in full day leaves
@@ -1053,7 +961,9 @@ struct BookAppointmentView: View {
                 // Store transaction data
                 try await db.collection("\(dbName)_transactions").document(transactionId).setData(transactionData)
                 
+                // After successful booking, immediately remove the slot from available time slots
                 await MainActor.run {
+                    availableTimeSlots.removeAll { $0 == startTime }
                     isLoading = false
                     showingConfirmation = true
                 }
