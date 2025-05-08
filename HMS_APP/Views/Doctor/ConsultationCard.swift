@@ -35,6 +35,8 @@ struct ConsultationCard: View {
     }
     
     var body: some View {
+        let isPastScheduled = appointment.status?.rawValue == "SCHEDULED" &&
+                             (appointment.appointmentDateTime ?? Date()) < Date()
         VStack(alignment: .leading, spacing: 0) {
             // Header (Time and Status Badge)
             HStack {
@@ -47,7 +49,11 @@ struct ConsultationCard: View {
                 Spacer()
                 
                 // Status Badge
-                StatusBadge(status: appointment.status?.rawValue ?? "")
+                if isPastScheduled{
+                    StatusBadge(status: "MISSED")
+                }else{
+                    StatusBadge(status: appointment.status?.rawValue ?? "")
+                }
             }
             .padding(.horizontal, 16)
             .padding(.top, 16)
@@ -95,7 +101,11 @@ struct ConsultationCard: View {
                             showReadOnlyConsultation = true
                         }
                     )
-                } else if isUpcoming {
+                }
+                else if isPastScheduled {
+                   
+                }
+                else if isUpcoming {
                     ActionButton(
                         icon: "calendar.badge.clock",
                         title: "Reschedule",
