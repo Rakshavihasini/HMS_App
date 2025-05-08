@@ -177,8 +177,7 @@ struct StaffDetailsView: View {
                         .foregroundColor(.white)
                         .imageScale(.large)
                         .padding(8)
-                        .background(Circle().fill(Color.white.opacity(0.2)))
-                        .contentShape(Circle())
+                        .clipShape(Circle())
                 }
                 
                 Spacer()

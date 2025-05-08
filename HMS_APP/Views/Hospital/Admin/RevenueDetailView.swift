@@ -20,6 +20,7 @@ struct RevenueDetailView: View {
     @State private var showShareSheet = false
     @State private var pdfURL: URL? = nil
     @State private var isGeneratingPDF = false
+    @State private var uniquePatientCount: Int = 0
     
     var currentTheme: Theme {
         colorScheme == .dark ? Theme.dark : Theme.light
@@ -30,7 +31,7 @@ struct RevenueDetailView: View {
     }
     
     var totalPatients: Int {
-        revenueData.reduce(0) { $0 + $1.patientCount }
+        uniquePatientCount
     }
     
     var averageRevenuePerPatient: Int {
@@ -161,7 +162,7 @@ struct RevenueDetailView: View {
                  // Time range selector
                 TimeRangeSelector(selectedRange: $selectedTimeRange)
                     .padding(.horizontal)
-                    .onChange(of: selectedTimeRange) { _ in
+                    .onChange(of: selectedTimeRange) { _, _ in
                         fetchTransactionData()
                     }
                 
@@ -351,6 +352,10 @@ struct RevenueDetailView: View {
                 // Update UI on main thread
                 await MainActor.run {
                     revenueData = newRevenueData
+                    
+                    // For all time ranges, use the unique patient IDs count
+                    uniquePatientCount = uniquePatientIds.count
+                    
                     isLoading = false
                 }
             } catch {
@@ -373,7 +378,8 @@ struct RevenueDetailView: View {
             return (startOfDay, endOfDay)
             
         case .week:
-            let startOfWeek = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: selectedDate))!
+            let components = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: selectedDate)
+            let startOfWeek = calendar.date(from: components)!
             let endOfWeek = calendar.date(byAdding: .day, value: 7, to: startOfWeek)!
             return (startOfWeek, endOfWeek)
             
