@@ -133,17 +133,25 @@ struct DashboardContent: View {
                             appointmentViewModel.upcomingAppointments : appointmentViewModel.pastAppointments
 
                         ForEach(appointments) { appointment in
-                            ConsultationCard(
-                                appointment: appointment,
-                                onReschedule: { // Pass the closure to handle reschedule tap
-                                    selectedAppointmentForReschedule = appointment
-                                    showingRescheduleView = true
-                                },
-                                onStartConsult: { // Pass the closure to handle tap
-                                    selectedAppointmentForDetail = appointment
-                                    showingConsultationDetail = true
-                                }
-                            )
+                            // Create a wrapper view to handle the status display logic
+                            
+                            // Use ZStack to overlay a "MISSED" badge if needed
+                            ZStack(alignment: .topTrailing) {
+                                ConsultationCard(
+                                    appointment: appointment,
+                                    onReschedule: { // Pass the closure to handle reschedule tap
+                                        selectedAppointmentForReschedule = appointment
+                                        showingRescheduleView = true
+                                    },
+                                    onStartConsult: { // Pass the closure to handle tap
+                                        selectedAppointmentForDetail = appointment
+                                        showingConsultationDetail = true
+                                    }
+                                )
+                                
+                                // Add a MISSED badge if it's a past SCHEDULED appointment
+                                
+                            }
                         }
                     }
                     .padding()
@@ -436,4 +444,4 @@ struct SegmentButton: View {
         .background(isSelected ? theme.primary : theme.card)
         .clipShape(RoundedRectangle(cornerRadius: 30))
     }
-} 
+}
