@@ -266,12 +266,12 @@ struct RevenueDetailView: View {
                 for document in snapshot.documents {
                     let data = document.data()
                     
-                    // Extract transaction date
+                    // Extract transaction date - prioritize transactionDate over appointmentDate
                     var transactionDate: Date?
-                    if let dateString = data["appointmentDate"] as? String {
-                        transactionDate = dateFormatter.date(from: dateString)
-                    } else if let timestamp = data["transactionDate"] as? Timestamp {
+                    if let timestamp = data["transactionDate"] as? Timestamp {
                         transactionDate = timestamp.dateValue()
+                    } else if let dateString = data["appointmentDate"] as? String {
+                        transactionDate = dateFormatter.date(from: dateString)
                     }
                     
                     // Skip if date is not in the selected range
