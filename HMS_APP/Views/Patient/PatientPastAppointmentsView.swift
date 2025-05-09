@@ -23,7 +23,7 @@ struct PatientPastAppointmentsCalendarView: View {
         case all = "All"
         case completed = "Completed"
         case cancelled = "Cancelled"
-        case noShow = "No Show"
+        case noShow = "Waiting"
         
         var id: String { self.rawValue }
         

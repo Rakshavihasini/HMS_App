@@ -104,8 +104,19 @@ struct InitialSymptomsView: View {
                 .foregroundColor(colorScheme == .dark ? .white : .primary)
                 .padding(.horizontal)
             
-            SearchBar(text: $searchText)
-                .padding(.horizontal)
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.gray)
+                TextField("Search", text: $searchText)
+                    .textFieldStyle(PlainTextFieldStyle())
+            }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(colorScheme == .dark ? Color(.systemGray6) : Color(.systemBackground))
+            )
+            .padding(.horizontal)
+            .padding(.vertical, 10)
             
             ScrollView {
                 LazyVGrid(columns: [GridItem(.flexible())], spacing: 10) {

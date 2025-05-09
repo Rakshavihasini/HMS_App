@@ -79,17 +79,6 @@ struct LoginScreen: View {
                 .submitLabel(.go)
             }
             
-            HStack {
-                Spacer()
-                Button(action: {
-                    // Handle forgot password
-                }) {
-                    Text("Forgot Password?")
-                        .foregroundColor(colorScheme == .dark ? Theme.dark.tertiary : Theme.light.tertiary)
-                        .font(.system(size: 14))
-                }
-            }
-            
             Button(action: {
                 Task {
                     await handleLogin()
