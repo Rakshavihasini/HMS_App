@@ -124,15 +124,6 @@ struct DoctorProfileView: View {
                 text: .constant(""),
                 onChange: {}
             )
-            
-            ProfileInfoRow(
-                icon: "calendar.badge.checkmark",
-                label: verifiedAt.map { dateFormatter.string(from: $0) } ?? "",
-                placeholder: "Verified At",
-                isEditable: false,
-                text: .constant(""),
-                onChange: {}
-            )
         }
         .listRowBackground(theme.card)
     }
